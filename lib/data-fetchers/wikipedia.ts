@@ -4,6 +4,7 @@ import { WikipediaData } from '../../types';
 
 export class WikipediaFetcher {
   private baseUrl: string;
+  private restApiUrl: string = 'https://en.wikipedia.org/w/rest.php/v1';
 
   constructor() {
     this.baseUrl = API_CONFIG.wikipedia.baseUrl;
@@ -13,7 +14,9 @@ export class WikipediaFetcher {
    * Get Wikipedia page data
    */
   async getPageData(pageName: string): Promise<WikipediaData | null> {
-    console.log(`📖 Fetching Wikipedia data for "${pageName}"...`);
+    // Convert underscores to spaces and clean the name
+    const cleanName = pageName.replace(/_/g, ' ').trim();
+    console.log(`📖 Fetching Wikipedia data for "${cleanName}"...`);
     
     try {
       // Get page extract and info
@@ -21,13 +24,15 @@ export class WikipediaFetcher {
         params: {
           action: 'query',
           format: 'json',
-          titles: pageName,
+          titles: cleanName,
           prop: 'extracts|categories|revisions',
           exintro: true,
           explaintext: true,
           rvprop: 'timestamp',
           rvlimit: 1,
         },
+        timeout: 10000,
+      });
         timeout: 10000,
       });
 
@@ -70,6 +75,9 @@ export class WikipediaFetcher {
    */
   async getPageViews(pageName: string): Promise<number> {
     try {
+      // Wikipedia pageview API uses underscores in URLs
+      const urlSafeName = pageName.replace(/ /g, '_');
+      
       const endDate = new Date();
       const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
@@ -77,7 +85,7 @@ export class WikipediaFetcher {
         return date.toISOString().split('T')[0].replace(/-/g, '');
       };
 
-      const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/${encodeURIComponent(pageName)}/daily/${formatDate(startDate)}/${formatDate(endDate)}`;
+      const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/${encodeURIComponent(urlSafeName)}/daily/${formatDate(startDate)}/${formatDate(endDate)}`;
 
       const response = await axios.get(url, { timeout: 10000 });
 
@@ -86,6 +94,7 @@ export class WikipediaFetcher {
           (sum: number, item: any) => sum + (item.views || 0),
           0
         );
+        console.log(`✅ Wikipedia pageviews: ${totalViews} views for "${pageName}"`);
         return totalViews;
       }
 
@@ -136,35 +145,37 @@ export class WikipediaFetcher {
   }
 
   /**
-   * Search for a person's Wikipedia page
+   * Search for a person's Wikipedia page using REST API
    */
   async searchPage(personName: string): Promise<string | null> {
-    console.log(`🔍 Searching Wikipedia for "${personName}"...`);
+    // Convert underscores to spaces and clean the name
+    const cleanName = personName.replace(/_/g, ' ').trim();
+    console.log(`🔍 Searching Wikipedia REST API for "${cleanName}"...`);
     
     try {
-      const response = await axios.get(this.baseUrl, {
+      const response = await axios.get(`${this.restApiUrl}/search/page`, {
         params: {
-          action: 'query',
-          format: 'json',
-          list: 'search',
-          srsearch: personName,
-          srlimit: 5, // Get top 5 results
+          q: cleanName,
+          limit: 5,
+        },
+        headers: {
+          'Api-User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
         },
         timeout: 10000,
       });
 
-      const results = response.data.query?.search;
-      if (results && results.length > 0) {
-        console.log(`✅ Wikipedia search: Found ${results.length} results`);
-        results.forEach((r: any, i: number) => {
-          console.log(`  ${i + 1}. "${r.title}" (score: ${r.score || 'N/A'})`);
+      const pages = response.data.pages;
+      if (pages && pages.length > 0) {
+        console.log(`✅ Wikipedia REST search: Found ${pages.length} results`);
+        pages.forEach((page: any, i: number) => {
+          console.log(`  ${i + 1}. "${page.title}" (key: ${page.key})`);
         });
         
-        // Return the top result
-        return results[0].title;
+        // Return the top result's title
+        return pages[0].title;
       }
 
-      console.warn(`⚠️ Wikipedia search: No results for "${personName}"`);
+      console.warn(`⚠️ Wikipedia search: No results for "${cleanName}"`);
       return null;
     } catch (error: any) {
       console.error('❌ Error searching Wikipedia:', error.message);

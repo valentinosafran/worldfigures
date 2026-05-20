@@ -7,9 +7,10 @@ export async function GET(
 ) {
   try {
     const { name } = params;
-    const decodedName = decodeURIComponent(name);
+    const decodedName = decodeURIComponent(name).replace(/_/g, ' ');
 
     console.log(`\n🧪 Testing Wikipedia lookup for: "${decodedName}"`);
+    console.log(`Original param: "${name}"`);
 
     // Try direct lookup
     console.log('1️⃣ Attempting direct lookup...');
@@ -28,6 +29,7 @@ export async function GET(
 
     return NextResponse.json({
       query: decodedName,
+      originalParam: name,
       results: {
         directLookup: directResult ? {
           found: true,
