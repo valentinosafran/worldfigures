@@ -59,7 +59,7 @@ export class GoogleTrendsFetcher {
               timeRange: item.formattedTime,
             }));
             
-            const avgInterest = trendData.reduce((sum, item) => sum + item.interest, 0) / trendData.length;
+            const avgInterest = trendData.reduce((sum: number, item) => sum + item.interest, 0) / trendData.length;
             
             // Only use results with meaningful data (avg interest > 0)
             if (avgInterest > 0) {
