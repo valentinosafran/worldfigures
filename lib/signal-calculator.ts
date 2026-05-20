@@ -1,5 +1,17 @@
 /**
  * Calculate signal score (how "newsworthy" or "active" a person is)
+ * 
+ * Formula emphasizes the key differentiating factors:
+ * - Impact: Media visibility and influence (65%) - primary driver
+ * - Controversy: Public dispute level, polarization (30%) - amplifies signal
+ * - Confidence: Data quality factor (5%)
+ * - Movement: Recent score changes (up to 12 bonus points)
+ * 
+ * This creates meaningful differentiation:
+ * - Very high impact (90+) + controversy (10+) = 70-80 range
+ * - High impact (70-89) + moderate controversy = 55-70 range
+ * - Medium impact (50-69) = 40-55 range
+ * - Low impact (<50) = <40 range
  */
 export function calculateSignalScore(
   scores: {
@@ -16,13 +28,16 @@ export function calculateSignalScore(
     controversy: number;
   }
 ): number {
-  // Base signal on impact (visibility) and controversy (discussion volume)
-  const baseSignal = scores.impact * 0.45 + scores.controversy * 0.15;
+  // Impact: Primary driver of signal (65%)
+  const impactFactor = scores.impact * 0.65;
   
-  // Add confidence factor (more confident data = stronger signal)
-  const confidenceBonus = confidence * 0.15;
+  // Controversy: Amplifies signal through polarization (30%)
+  const controversyFactor = scores.controversy * 0.30;
   
-  // Add movement factor (bigger changes = stronger signal)
+  // Confidence factor: Data quality (5%)
+  const confidenceFactor = confidence * 0.05;
+  
+  // Movement factor: Recent changes increase signal (up to 12 bonus points)
   let movementBonus = 0;
   if (recentMovement) {
     const totalMovement = 
@@ -31,10 +46,12 @@ export function calculateSignalScore(
       Math.abs(recentMovement.impact) +
       Math.abs(recentMovement.controversy);
     
-    movementBonus = Math.min(totalMovement * 2, 25); // Cap at 25 points
+    movementBonus = Math.min(totalMovement * 1.2, 12); // Cap at 12 points
   }
   
-  return Math.round(baseSignal + confidenceBonus + movementBonus);
+  const baseSignal = impactFactor + controversyFactor + confidenceFactor;
+  
+  return Math.round(baseSignal + movementBonus);
 }
 
 /**
