@@ -115,11 +115,19 @@ export class ScoreCalculator {
     trendData: any[],
     wikiData: any
   ): ScoreBreakdown {
+    console.log('\n🧮 Calculating score breakdown...');
+    
     // APPROVAL COMPONENTS
     const newsSentiment = newsAPIFetcher.getSentimentScore(newsArticles);
     const socialSentiment = redditFetcher.getSocialSentimentScore(redditPosts);
     const favorability = Math.round((newsSentiment + socialSentiment) / 2);
     const pollingTrends = this.estimatePollingTrends(newsSentiment, socialSentiment);
+
+    console.log(`  Approval components:`);
+    console.log(`    News Sentiment: ${newsSentiment}`);
+    console.log(`    Social Sentiment: ${socialSentiment}`);
+    console.log(`    Favorability: ${favorability}`);
+    console.log(`    Polling Trends: ${pollingTrends}`);
 
     const approvalScore = Math.round(
       favorability * SCORING_WEIGHTS.approval.favorability +
@@ -127,6 +135,8 @@ export class ScoreCalculator {
       pollingTrends * SCORING_WEIGHTS.approval.pollingTrends +
       socialSentiment * SCORING_WEIGHTS.approval.socialSentiment
     );
+    
+    console.log(`    → Approval Score: ${approvalScore}`);
 
     // TRUST COMPONENTS
     const institutional = this.estimateInstitutionalTrust(wikiData, newsArticles);
@@ -134,12 +144,20 @@ export class ScoreCalculator {
     const expertEval = this.estimateExpertEvaluation(wikiData);
     const consistency = this.estimateConsistency(newsArticles);
 
+    console.log(`  Trust components:`);
+    console.log(`    Institutional: ${institutional}`);
+    console.log(`    Fact Check: ${factCheck}`);
+    console.log(`    Expert Eval: ${expertEval}`);
+    console.log(`    Consistency: ${consistency}`);
+
     const trustScore = Math.round(
       institutional * SCORING_WEIGHTS.trust.institutional +
       factCheck * SCORING_WEIGHTS.trust.factCheck +
       expertEval * SCORING_WEIGHTS.trust.expertEval +
       consistency * SCORING_WEIGHTS.trust.consistency
     );
+    
+    console.log(`    → Trust Score: ${trustScore}`);
 
     // IMPACT COMPONENTS
     const mediaCoverage = newsAPIFetcher.getCoverageScore(newsArticles);
@@ -148,6 +166,13 @@ export class ScoreCalculator {
     const policyInfluence = wikipediaFetcher.getInfluenceScore(wikiData);
     const eventImpact = wikipediaFetcher.getRecencyScore(wikiData);
 
+    console.log(`  Impact components:`);
+    console.log(`    Media Coverage: ${mediaCoverage}`);
+    console.log(`    Social Reach: ${socialReach}`);
+    console.log(`    Search Volume: ${searchVolume}`);
+    console.log(`    Policy Influence: ${policyInfluence}`);
+    console.log(`    Event Impact: ${eventImpact}`);
+
     const impactScore = Math.round(
       mediaCoverage * SCORING_WEIGHTS.impact.mediaCoverage +
       policyInfluence * SCORING_WEIGHTS.impact.policyInfluence +
@@ -155,6 +180,8 @@ export class ScoreCalculator {
       searchVolume * SCORING_WEIGHTS.impact.searchVolume +
       eventImpact * SCORING_WEIGHTS.impact.eventImpact
     );
+    
+    console.log(`    → Impact Score: ${impactScore}`);
 
     // CONTROVERSY COMPONENTS
     const negativeCoverage = newsAPIFetcher.getNegativeCoverageScore(newsArticles);
@@ -163,6 +190,13 @@ export class ScoreCalculator {
     const criticismIntensity = this.estimateCriticismIntensity(newsArticles, redditPosts);
     const disputeVolume = this.estimateDisputeVolume(newsArticles);
 
+    console.log(`  Controversy components:`);
+    console.log(`    Negative Coverage: ${negativeCoverage}`);
+    console.log(`    Polarization: ${polarization}`);
+    console.log(`    Scandal Frequency: ${scandalFrequency}`);
+    console.log(`    Criticism Intensity: ${criticismIntensity}`);
+    console.log(`    Dispute Volume: ${disputeVolume}`);
+
     const controversyScore = Math.round(
       negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
       scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
@@ -170,6 +204,9 @@ export class ScoreCalculator {
       criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
       disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
     );
+    
+    console.log(`    → Controversy Score: ${controversyScore}`);
+    console.log('');
 
     return {
       approval: {

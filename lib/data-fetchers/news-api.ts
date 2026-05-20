@@ -47,18 +47,30 @@ export class NewsAPIFetcher {
       console.log(`📰 NewsAPI response status: ${response.data.status}`);
 
       if (response.data.status === 'ok') {
-        const articles = response.data.articles.map((article: any) => ({
-          title: article.title,
-          description: article.description || '',
-          url: article.url,
-          source: article.source.name,
-          publishedAt: article.publishedAt,
-          sentiment: this.analyzeSentiment(
+        const articles = response.data.articles.map((article: any) => {
+          const sentimentValue = this.analyzeSentiment(
             `${article.title} ${article.description || ''}`
-          ),
-        }));
+          );
+          
+          return {
+            title: article.title,
+            description: article.description || '',
+            url: article.url,
+            source: article.source.name,
+            publishedAt: article.publishedAt,
+            sentiment: sentimentValue,
+          };
+        });
+        
+        // Log sentiment statistics
+        const avgSentiment = articles.reduce((sum, a) => sum + a.sentiment, 0) / articles.length;
+        const positiveCount = articles.filter(a => a.sentiment > 0.1).length;
+        const negativeCount = articles.filter(a => a.sentiment < -0.1).length;
+        const neutralCount = articles.length - positiveCount - negativeCount;
         
         console.log(`✅ NewsAPI: Found ${articles.length} articles for "${searchQuery}"`);
+        console.log(`   Sentiment: avg=${avgSentiment.toFixed(3)}, +${positiveCount}/-${negativeCount}/~${neutralCount}`);
+        
         return articles;
       }
 
