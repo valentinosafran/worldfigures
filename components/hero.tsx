@@ -1,33 +1,16 @@
-const miniProfiles = [
-  {
-    name: "Ursula von der Leyen",
-    slug: "ursula-von-der-leyen",
-    image: "/images/people/ursula-von-der-leyen.jpg",
-    opinion: "Positive leaning",
-    delta: 4,
-  },
-  {
-    name: "Elon Musk",
-    slug: "elon-musk",
-    image: "/images/people/elon-musk.jpg",
-    opinion: "Highly polarizing",
-    delta: -1,
-  },
-  {
-    name: "Jacinda Ardern",
-    slug: "jacinda-ardern",
-    image: "/images/people/jacinda-ardern.jpg",
-    opinion: "Positive leaning",
-    delta: 2,
-  },
-];
-
-const benchmarkStats = [
-  { label: "Approval", value: 72 },
-  { label: "Trust", value: 64 },
-  { label: "Impact", value: 88 },
-  { label: "Controversy", value: 39 },
-];
+interface HeroProps {
+  benchmarkStats: {
+    label: string;
+    value: number;
+  }[];
+  trendingPeople: {
+    name: string;
+    slug: string;
+    image: string;
+    opinion: string;
+    delta: number;
+  }[];
+}
 
 function getOpinionClass(label: string) {
   const normalized = label.toLowerCase();
@@ -47,7 +30,7 @@ function getDeltaClass(delta: number) {
   return "change-flat";
 }
 
-export function Hero() {
+export function Hero({ benchmarkStats, trendingPeople }: HeroProps) {
   return (
     <section className="hero">
       <div className="container heroGrid">
@@ -100,7 +83,7 @@ export function Hero() {
             </p>
 
             <div className="miniProfiles">
-              {miniProfiles.map((profile) => (
+              {trendingPeople.map((profile) => (
                 <a className="miniProfile miniProfileLink" href={`/profile/${profile.slug}`} key={profile.name}>
                   <div className="miniProfileMain">
                     <img
