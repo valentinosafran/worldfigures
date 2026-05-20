@@ -80,12 +80,40 @@ export async function fetchPersonData(slug: string): Promise<APIPersonData | nul
 
 /**
  * Fetch multiple people's data in parallel
+ * Uses bulk endpoint for better performance
  * @param slugs - Array of person slugs
  * @returns Map of slug to API data (excludes failed fetches)
  */
 export async function fetchMultiplePeopleData(
   slugs: string[]
 ): Promise<Map<string, APIPersonData>> {
+  try {
+    // Try bulk endpoint first (more efficient)
+    const isServer = typeof window === 'undefined';
+    const baseUrl = isServer 
+      ? process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+      : '';
+    
+    const response = await fetch(`${baseUrl}/api/data/bulk`, {
+      cache: 'no-store',
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.data) {
+        const dataMap = new Map<string, APIPersonData>();
+        for (const [slug, data] of Object.entries(result.data)) {
+          dataMap.set(slug, data as APIPersonData);
+        }
+        console.log(`✅ Bulk fetch returned ${dataMap.size} people`);
+        return dataMap;
+      }
+    }
+  } catch (error) {
+    console.error('Bulk fetch failed, falling back to individual fetches:', error);
+  }
+
+  // Fallback to individual fetches
   const results = await Promise.allSettled(
     slugs.map(slug => fetchPersonData(slug))
   );

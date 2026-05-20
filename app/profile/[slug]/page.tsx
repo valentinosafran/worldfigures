@@ -7,6 +7,10 @@ import {
 } from "../../../data/people";
 import { fetchPersonData, formatLastUpdated } from "../../../lib/api-client";
 
+// Force dynamic rendering - no static generation
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function getValueTone(metric: "approval" | "trust" | "impact" | "controversy", value: number) {
   if (metric === "controversy") {
     if (value >= 80) return "tone-risk-high";
@@ -32,10 +36,6 @@ function getBandLabel(metric: "approval" | "trust" | "impact" | "controversy", v
   if (value >= 60) return "Strong";
   if (value >= 40) return "Mixed";
   return "Weak";
-}
-
-export function generateStaticParams() {
-  return people.map((person) => ({ slug: person.slug }));
 }
 
 export default async function PersonProfilePage({
