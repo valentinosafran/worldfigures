@@ -1,6 +1,25 @@
 import { getOpinionClass, people } from "../data/people";
+import { fetchMultiplePeopleData } from "../lib/api-client";
 
-export function Trending() {
+export async function Trending() {
+  // Fetch real-time data for all people
+  const apiDataMap = await fetchMultiplePeopleData(people.map(p => p.slug));
+
+  // Merge static profiles with API data
+  const enrichedPeople = people.map(person => {
+    const apiData = apiDataMap.get(person.slug);
+    return {
+      ...person,
+      scores: apiData ? {
+        approval: apiData.breakdown.approval.score,
+        trust: apiData.breakdown.trust.score,
+        impact: apiData.breakdown.impact.score,
+        controversy: apiData.breakdown.controversy.score,
+      } : person.scores,
+      hasLiveData: !!apiData,
+    };
+  });
+
   return (
     <section className="section" id="rankings">
       <div className="container">
@@ -14,7 +33,7 @@ export function Trending() {
         </div>
 
         <div className="cardGrid four profileCards">
-          {people.map((person) => (
+          {enrichedPeople.map((person) => (
             <article className="profileCard" key={person.name}>
               <img className="avatar" src={person.image} alt={person.name} />
               <h3>{person.name}</h3>

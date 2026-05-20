@@ -1,4 +1,5 @@
 import { getOpinionClass, people, type PersonProfile } from "../data/people";
+import { fetchMultiplePeopleData } from "../lib/api-client";
 
 function formatDelta(value: number) {
   if (value > 0) return `+${value}`;
@@ -12,48 +13,73 @@ function getDeltaClass(value: number) {
   return "change-flat";
 }
 
-function getSignalScore(person: PersonProfile) {
+type EnrichedPerson = PersonProfile & {
+  signalScore: number;
+  pressureScore: number;
+  hasLiveData: boolean;
+};
+
+function getSignalScore(scores: { approval: number; trust: number; impact: number; controversy: number }, sourceConfidence: number, trend7d: number, trend30d: number) {
   return Math.round(
-    person.scores.impact * 0.45 +
-      person.scores.controversy * 0.15 +
-      person.sourceConfidence * 0.15 +
-      Math.abs(person.trend7d) * 8 +
-      Math.abs(person.trend30d) * 3
+    scores.impact * 0.45 +
+      scores.controversy * 0.15 +
+      sourceConfidence * 0.15 +
+      Math.abs(trend7d) * 8 +
+      Math.abs(trend30d) * 3
   );
 }
 
-function getPressureScore(person: PersonProfile) {
+function getPressureScore(scores: { approval: number; trust: number; impact: number; controversy: number }, trend7d: number) {
   return Math.round(
-    person.scores.controversy * 0.5 +
-      Math.max(person.trend7d * -12, 0) +
-      Math.max(55 - person.scores.trust, 0)
+    scores.controversy * 0.5 +
+      Math.max(trend7d * -12, 0) +
+      Math.max(55 - scores.trust, 0)
   );
 }
 
-export function Top100Dashboard() {
-  const rankedPeople = [...people]
-    .map((person) => ({
+export async function Top100Dashboard() {
+  // Fetch real-time data for all people
+  const apiDataMap = await fetchMultiplePeopleData(people.map(p => p.slug));
+
+  // Merge static profiles with API data and calculate derived scores
+  const enrichedPeople: EnrichedPerson[] = people.map(person => {
+    const apiData = apiDataMap.get(person.slug);
+    const scores = apiData ? {
+      approval: apiData.breakdown.approval.score,
+      trust: apiData.breakdown.trust.score,
+      impact: apiData.breakdown.impact.score,
+      controversy: apiData.breakdown.controversy.score,
+    } : person.scores;
+    
+    const sourceConfidence = apiData ? apiData.confidence : person.sourceConfidence;
+    
+    return {
       ...person,
-      signalScore: getSignalScore(person),
-      pressureScore: getPressureScore(person),
-    }))
-    .sort((a, b) => b.signalScore - a.signalScore);
+      scores,
+      sourceConfidence,
+      signalScore: getSignalScore(scores, sourceConfidence, person.trend7d, person.trend30d),
+      pressureScore: getPressureScore(scores, person.trend7d),
+      hasLiveData: !!apiData,
+    };
+  });
 
-  const positiveCount = people.filter((person) =>
+  const rankedPeople = [...enrichedPeople].sort((a, b) => b.signalScore - a.signalScore);
+
+  const positiveCount = enrichedPeople.filter((person) =>
     person.label.toLowerCase().includes("positive")
   ).length;
-  const polarizingCount = people.filter((person) =>
+  const polarizingCount = enrichedPeople.filter((person) =>
     person.label.toLowerCase().includes("polarizing")
   ).length;
   const averageApproval = Math.round(
-    people.reduce((sum, person) => sum + person.scores.approval, 0) / people.length
+    enrichedPeople.reduce((sum, person) => sum + person.scores.approval, 0) / enrichedPeople.length
   );
   const averageTrust = Math.round(
-    people.reduce((sum, person) => sum + person.scores.trust, 0) / people.length
+    enrichedPeople.reduce((sum, person) => sum + person.scores.trust, 0) / enrichedPeople.length
   );
   const averageTrend7d = Number(
     (
-      people.reduce((sum, person) => sum + person.trend7d, 0) / people.length
+      enrichedPeople.reduce((sum, person) => sum + person.trend7d, 0) / enrichedPeople.length
     ).toFixed(1)
   );
 
@@ -70,7 +96,7 @@ export function Top100Dashboard() {
   )[0];
 
   const topNarratives = Object.entries(
-    people.reduce<Record<string, number>>((acc, person) => {
+    enrichedPeople.reduce<Record<string, number>>((acc, person) => {
       person.keyTopics.forEach((topic) => {
         acc[topic] = (acc[topic] ?? 0) + 1;
       });

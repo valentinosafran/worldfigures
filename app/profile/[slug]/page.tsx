@@ -5,6 +5,7 @@ import {
   getPersonBySlug,
   people,
 } from "../../../data/people";
+import { fetchPersonData, formatLastUpdated } from "../../../lib/api-client";
 
 function getValueTone(metric: "approval" | "trust" | "impact" | "controversy", value: number) {
   if (metric === "controversy") {
@@ -67,6 +68,21 @@ export default async function PersonProfilePage({
     );
   }
 
+  // Fetch real-time data from API
+  const apiData = await fetchPersonData(resolvedParams.slug);
+
+  // Use API scores if available, otherwise fall back to static data
+  const scores = apiData ? {
+    approval: apiData.breakdown.approval.score,
+    trust: apiData.breakdown.trust.score,
+    impact: apiData.breakdown.impact.score,
+    controversy: apiData.breakdown.controversy.score,
+  } : person.scores;
+
+  const confidence = apiData ? apiData.confidence : person.sourceConfidence;
+  const lastUpdated = apiData ? formatLastUpdated(apiData.lastUpdated) : person.lastUpdated;
+  const isLiveData = !!apiData;
+
   return (
     <main>
       <Navbar />
@@ -95,12 +111,12 @@ export default async function PersonProfilePage({
             <div className="profileMetaRow">
               <div className="miniMetricCard">
                 <span>Source confidence</span>
-                <strong>{person.sourceConfidence}%</strong>
+                <strong>{Math.round(confidence)}%</strong>
               </div>
               <div className="miniMetricCard">
-                <span>7-day movement</span>
-                <strong className={person.trend7d >= 0 ? "trend-up" : "trend-down"}>
-                  {person.trend7d >= 0 ? `+${person.trend7d}` : person.trend7d}
+                <span>Data status</span>
+                <strong className={isLiveData ? "trend-up" : "trend-flat"}>
+                  {isLiveData ? "🔴 Live" : "📊 Static"}
                 </strong>
               </div>
               <div className="miniMetricCard">
@@ -111,7 +127,7 @@ export default async function PersonProfilePage({
               </div>
               <div className="miniMetricCard">
                 <span>Updated</span>
-                <strong>{person.lastUpdated}</strong>
+                <strong>{lastUpdated}</strong>
               </div>
             </div>
 
@@ -124,62 +140,62 @@ export default async function PersonProfilePage({
               <div className="profileScoreCard">
                 <div className="profileScoreHeader">
                   <span>Approval</span>
-                  <strong className={`scoreValue ${getValueTone("approval", person.scores.approval)}`}>
-                    {person.scores.approval}
+                  <strong className={`scoreValue ${getValueTone("approval", scores.approval)}`}>
+                    {scores.approval}
                   </strong>
                 </div>
                 <div className="scaleTrack">
                   <div
-                    className={`scaleFill fill-${getValueTone("approval", person.scores.approval)}`}
-                    style={{ width: `${person.scores.approval}%` }}
+                    className={`scaleFill fill-${getValueTone("approval", scores.approval)}`}
+                    style={{ width: `${scores.approval}%` }}
                   />
                 </div>
-                <p className="bandLabel">{getBandLabel("approval", person.scores.approval)}</p>
+                <p className="bandLabel">{getBandLabel("approval", scores.approval)}</p>
               </div>
               <div className="profileScoreCard">
                 <div className="profileScoreHeader">
                   <span>Trust</span>
-                  <strong className={`scoreValue ${getValueTone("trust", person.scores.trust)}`}>
-                    {person.scores.trust}
+                  <strong className={`scoreValue ${getValueTone("trust", scores.trust)}`}>
+                    {scores.trust}
                   </strong>
                 </div>
                 <div className="scaleTrack">
                   <div
-                    className={`scaleFill fill-${getValueTone("trust", person.scores.trust)}`}
-                    style={{ width: `${person.scores.trust}%` }}
+                    className={`scaleFill fill-${getValueTone("trust", scores.trust)}`}
+                    style={{ width: `${scores.trust}%` }}
                   />
                 </div>
-                <p className="bandLabel">{getBandLabel("trust", person.scores.trust)}</p>
+                <p className="bandLabel">{getBandLabel("trust", scores.trust)}</p>
               </div>
               <div className="profileScoreCard">
                 <div className="profileScoreHeader">
                   <span>Impact</span>
-                  <strong className={`scoreValue ${getValueTone("impact", person.scores.impact)}`}>
-                    {person.scores.impact}
+                  <strong className={`scoreValue ${getValueTone("impact", scores.impact)}`}>
+                    {scores.impact}
                   </strong>
                 </div>
                 <div className="scaleTrack">
                   <div
-                    className={`scaleFill fill-${getValueTone("impact", person.scores.impact)}`}
-                    style={{ width: `${person.scores.impact}%` }}
+                    className={`scaleFill fill-${getValueTone("impact", scores.impact)}`}
+                    style={{ width: `${scores.impact}%` }}
                   />
                 </div>
-                <p className="bandLabel">{getBandLabel("impact", person.scores.impact)}</p>
+                <p className="bandLabel">{getBandLabel("impact", scores.impact)}</p>
               </div>
               <div className="profileScoreCard">
                 <div className="profileScoreHeader">
                   <span>Controversy</span>
-                  <strong className={`scoreValue ${getValueTone("controversy", person.scores.controversy)}`}>
-                    {person.scores.controversy}
+                  <strong className={`scoreValue ${getValueTone("controversy", scores.controversy)}`}>
+                    {scores.controversy}
                   </strong>
                 </div>
                 <div className="scaleTrack">
                   <div
-                    className={`scaleFill fill-${getValueTone("controversy", person.scores.controversy)}`}
-                    style={{ width: `${person.scores.controversy}%` }}
+                    className={`scaleFill fill-${getValueTone("controversy", scores.controversy)}`}
+                    style={{ width: `${scores.controversy}%` }}
                   />
                 </div>
-                <p className="bandLabel">{getBandLabel("controversy", person.scores.controversy)}</p>
+                <p className="bandLabel">{getBandLabel("controversy", scores.controversy)}</p>
               </div>
             </div>
 

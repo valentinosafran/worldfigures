@@ -10,7 +10,7 @@ import { TrustSection } from "../components/trust-section";
 import { CTA } from "../components/cta";
 import { Footer } from "../components/footer";
 
-export default function HomePage() {
+export default async function HomePage() {
   return (
     <main>
       <Navbar />
