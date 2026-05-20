@@ -33,8 +33,6 @@ export class WikipediaFetcher {
         },
         timeout: 10000,
       });
-        timeout: 10000,
-      });
 
       const pages = response.data.query?.pages;
       if (!pages) {
@@ -46,15 +44,15 @@ export class WikipediaFetcher {
       const page = pages[pageId];
 
       if (pageId === '-1' || !page) {
-        console.warn(`⚠️ Wikipedia: Page not found for "${pageName}"`);
+        console.warn(`⚠️ Wikipedia: Page not found for "${cleanName}"`);
         return null;
       }
 
       const categories = page.categories?.map((cat: any) => cat.title.replace('Category:', '')) || [];
       const lastEdited = page.revisions?.[0]?.timestamp || '';
 
-      // Get page view statistics
-      const pageViews = await this.getPageViews(pageName);
+      // Get page view statistics (use cleaned name with spaces)
+      const pageViews = await this.getPageViews(cleanName);
 
       console.log(`✅ Wikipedia: Found page with ${pageViews} views (30 days)`);
 
@@ -65,7 +63,11 @@ export class WikipediaFetcher {
         lastEdited,
       };
     } catch (error: any) {
-      console.error('❌ Error fetching Wikipedia data:', error.message);
+      console.error('❌ Error fetching Wikipedia data:');
+      console.error('  Message:', error.message);
+      console.error('  Status:', error.response?.status);
+      console.error('  Data:', JSON.stringify(error.response?.data));
+      console.error('  URL:', error.config?.url);
       return null;
     }
   }
@@ -178,7 +180,11 @@ export class WikipediaFetcher {
       console.warn(`⚠️ Wikipedia search: No results for "${cleanName}"`);
       return null;
     } catch (error: any) {
-      console.error('❌ Error searching Wikipedia:', error.message);
+      console.error('❌ Error searching Wikipedia:');
+      console.error('  Message:', error.message);
+      console.error('  Status:', error.response?.status);
+      console.error('  Data:', JSON.stringify(error.response?.data));
+      console.error('  URL:', error.config?.url);
       return null;
     }
   }
