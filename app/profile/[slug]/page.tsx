@@ -100,11 +100,11 @@ export default async function PersonProfilePage({
               <img className="profileHeroAvatar" src={person.image} alt={person.name} />
               <div>
                 <h1 className="profileHeroTitle">{person.name}</h1>
-                <p className="profileHeroMeta">label)}`}>
-                  {role} · {person.region}
+                <p className="profileHeroMeta">
+                  {person.role} · {person.region}
                 </p>
-                <span className={`pill opinionTag ${getOpinionClass(person.label)}`}>
-                  {person.label}
+                <span className={`pill opinionTag ${getOpinionClass(label)}`}>
+                  {label}
                 </span>
               </div>
             </div>
