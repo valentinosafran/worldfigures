@@ -18,23 +18,22 @@ type EnrichedPerson = PersonProfile & {
   signalScore: number;
   pressureScore: number;
   hasLiveData: boolean;
+  trend7d: number;
 };
-
-function getSignalScore(scores: { approval: number; trust: number; impact: number; controversy: number }, sourceConfidence: number, trend7d: number, trend30d: number) {
-  return Math.round(
-    scores.impact * 0.45 +
-      scores.controversy * 0.15 +
-      sourceConfidence * 0.15 +
-      Math.abs(trend7d) * 8 +
-      Math.abs(trend30d) * 3
-  );
-}
 
 function getPressureScore(scores: { approval: number; trust: number; impact: number; controversy: number }, trend7d: number) {
   return Math.round(
     scores.controversy * 0.5 +
       Math.max(trend7d * -12, 0) +
       Math.max(55 - scores.trust, 0)
+  );
+}
+
+function calculate7dMovement(movement7d?: { approval: number; trust: number; impact: number; controversy: number } | null): number {
+  if (!movement7d) return 0;
+  // Average the 4 score changes to get overall movement
+  return Number(
+    ((movement7d.approval + movement7d.trust + movement7d.impact + movement7d.controversy) / 4).toFixed(1)
   );
 }
 
@@ -55,13 +54,20 @@ export async function Top100Dashboard() {
     const sourceConfidence = apiData ? apiData.confidence : person.sourceConfidence;
     const label = calculateLabel(scores);
     
+    // Use real signalScore from API, fallback to 0 if not available
+    const signalScore = apiData?.signalScore ?? 0;
+    
+    // Calculate 7-day movement from API movement7d data
+    const trend7d = apiData ? calculate7dMovement(apiData.movement7d) : person.trend7d;
+    
     return {
       ...person,
       scores,
       label,
       sourceConfidence,
-      signalScore: getSignalScore(scores, sourceConfidence, person.trend7d, person.trend30d),
-      pressureScore: getPressureScore(scores, person.trend7d),
+      signalScore,
+      trend7d,
+      pressureScore: getPressureScore(scores, trend7d),
       hasLiveData: !!apiData,
     };
   });

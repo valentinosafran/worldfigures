@@ -16,13 +16,19 @@ export async function GET(request: NextRequest) {
     if (!forceRefresh) {
       const cachedData = await getAllCachedPeopleData();
       if (cachedData && cachedData.size > 0) {
-        console.log(`✅ Returning ${cachedData.size} people from cache`);
-        return NextResponse.json({
-          success: true,
-          data: Object.fromEntries(cachedData),
-          cached: true,
-          count: cachedData.size,
-        });
+        // Verify cached data has required fields (signalScore, movement7d)
+        const firstEntry = Array.from(cachedData.values())[0];
+        if (firstEntry && 'signalScore' in firstEntry) {
+          console.log(`✅ Returning ${cachedData.size} people from cache`);
+          return NextResponse.json({
+            success: true,
+            data: Object.fromEntries(cachedData),
+            cached: true,
+            count: cachedData.size,
+          });
+        } else {
+          console.log(`⚠️ Cache missing required fields, recalculating...`);
+        }
       }
     }
 
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
             // Check individual cache
             if (!forceRefresh) {
               const cached = await getCachedPersonData(person.slug);
-              if (cached) {
+              if (cached && 'signalScore' in cached) {
                 results.set(person.slug, cached);
                 return;
               }
