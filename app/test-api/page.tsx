@@ -160,10 +160,13 @@ export default function APITestPage() {
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.9rem' }}>
-                    <div>Favorability: {data.breakdown.approval.components.favorability}</div>
-                    <div>News Sentiment: {data.breakdown.approval.components.newsSentiment}</div>
-                    <div>Polling Trends: {data.breakdown.approval.components.pollingTrends}</div>
-                    <div>Social Sentiment: {data.breakdown.approval.components.socialSentiment}</div>
+                    <div>Favorability: <strong>{data.breakdown.approval.components.favorability}</strong> (40%)</div>
+                    <div>News Sentiment: <strong>{data.breakdown.approval.components.newsSentiment}</strong> (30%)</div>
+                    <div>Polling Trends: <strong>{data.breakdown.approval.components.pollingTrends}</strong> (20%)</div>
+                    <div>Social Sentiment: <strong>{data.breakdown.approval.components.socialSentiment}</strong> (10%)</div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--panel-2)', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <strong>Calculation:</strong> {data.breakdown.approval.components.favorability} × 0.40 + {data.breakdown.approval.components.newsSentiment} × 0.30 + {data.breakdown.approval.components.pollingTrends} × 0.20 + {data.breakdown.approval.components.socialSentiment} × 0.10 = <strong>{data.breakdown.approval.score}</strong>
                   </div>
                 </div>
 
@@ -176,10 +179,13 @@ export default function APITestPage() {
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.9rem' }}>
-                    <div>Institutional: {data.breakdown.trust.components.institutional}</div>
-                    <div>Fact Check: {data.breakdown.trust.components.factCheck}</div>
-                    <div>Expert Eval: {data.breakdown.trust.components.expertEval}</div>
-                    <div>Consistency: {data.breakdown.trust.components.consistency}</div>
+                    <div>Institutional: <strong>{data.breakdown.trust.components.institutional}</strong> (35%)</div>
+                    <div>Fact Check: <strong>{data.breakdown.trust.components.factCheck}</strong> (25%)</div>
+                    <div>Expert Eval: <strong>{data.breakdown.trust.components.expertEval}</strong> (25%)</div>
+                    <div>Consistency: <strong>{data.breakdown.trust.components.consistency}</strong> (15%)</div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--panel-2)', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <strong>Calculation:</strong> {data.breakdown.trust.components.institutional} × 0.35 + {data.breakdown.trust.components.factCheck} × 0.25 + {data.breakdown.trust.components.expertEval} × 0.25 + {data.breakdown.trust.components.consistency} × 0.15 = <strong>{data.breakdown.trust.score}</strong>
                   </div>
                 </div>
 
@@ -192,11 +198,14 @@ export default function APITestPage() {
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.9rem' }}>
-                    <div>Media Coverage: {data.breakdown.impact.components.mediaCoverage}</div>
-                    <div>Policy Influence: {data.breakdown.impact.components.policyInfluence}</div>
-                    <div>Social Reach: {data.breakdown.impact.components.socialReach}</div>
-                    <div>Search Volume: {data.breakdown.impact.components.searchVolume}</div>
-                    <div>Event Impact: {data.breakdown.impact.components.eventImpact}</div>
+                    <div>Media Coverage: <strong>{data.breakdown.impact.components.mediaCoverage}</strong> (35%)</div>
+                    <div>Policy Influence: <strong>{data.breakdown.impact.components.policyInfluence}</strong> (25%)</div>
+                    <div>Social Reach: <strong>{data.breakdown.impact.components.socialReach}</strong> (20%)</div>
+                    <div>Search Volume: <strong>{data.breakdown.impact.components.searchVolume}</strong> (15%)</div>
+                    <div>Event Impact: <strong>{data.breakdown.impact.components.eventImpact}</strong> (5%)</div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--panel-2)', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <strong>Calculation:</strong> {data.breakdown.impact.components.mediaCoverage} × 0.35 + {data.breakdown.impact.components.policyInfluence} × 0.25 + {data.breakdown.impact.components.socialReach} × 0.20 + {data.breakdown.impact.components.searchVolume} × 0.15 + {data.breakdown.impact.components.eventImpact} × 0.05 = <strong>{data.breakdown.impact.score}</strong>
                   </div>
                 </div>
 
@@ -209,11 +218,14 @@ export default function APITestPage() {
                     </span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.9rem' }}>
-                    <div>Negative Coverage: {data.breakdown.controversy.components.negativeCoverage}</div>
-                    <div>Scandal Frequency: {data.breakdown.controversy.components.scandalFrequency}</div>
-                    <div>Polarization: {data.breakdown.controversy.components.polarization}</div>
-                    <div>Criticism: {data.breakdown.controversy.components.criticismIntensity}</div>
-                    <div>Disputes: {data.breakdown.controversy.components.disputeVolume}</div>
+                    <div>Negative Coverage: <strong>{data.breakdown.controversy.components.negativeCoverage}</strong> (30%)</div>
+                    <div>Scandal Frequency: <strong>{data.breakdown.controversy.components.scandalFrequency}</strong> (25%)</div>
+                    <div>Polarization: <strong>{data.breakdown.controversy.components.polarization}</strong> (25%)</div>
+                    <div>Criticism: <strong>{data.breakdown.controversy.components.criticismIntensity}</strong> (15%)</div>
+                    <div>Disputes: <strong>{data.breakdown.controversy.components.disputeVolume}</strong> (5%)</div>
+                  </div>
+                  <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--panel-2)', borderRadius: '4px', fontSize: '0.85rem' }}>
+                    <strong>Calculation:</strong> {data.breakdown.controversy.components.negativeCoverage} × 0.30 + {data.breakdown.controversy.components.scandalFrequency} × 0.25 + {data.breakdown.controversy.components.polarization} × 0.25 + {data.breakdown.controversy.components.criticismIntensity} × 0.15 + {data.breakdown.controversy.components.disputeVolume} × 0.05 = <strong>{data.breakdown.controversy.score}</strong>
                   </div>
                 </div>
               </div>

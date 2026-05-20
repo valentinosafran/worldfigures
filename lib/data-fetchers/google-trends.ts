@@ -50,7 +50,20 @@ export class GoogleTrendsFetcher {
           }
           
           const result = await googleTrends.interestOverTime(options);
-          const data = JSON.parse(result);
+          
+          // Check if result is HTML (rate limit or error page)
+          if (typeof result === 'string' && result.trim().startsWith('<')) {
+            console.log(`   ⚠️ Received HTML instead of JSON (possible rate limit)`);
+            continue;
+          }
+          
+          let data;
+          try {
+            data = JSON.parse(result);
+          } catch (parseError) {
+            console.error(`   ❌ JSON parse error for "${variation}":`, parseError instanceof Error ? parseError.message : 'Unknown error');
+            continue;
+          }
           
           if (data.default && data.default.timelineData && data.default.timelineData.length > 0) {
             const trendData = data.default.timelineData.map((item: any) => ({
