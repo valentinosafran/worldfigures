@@ -1,5 +1,6 @@
 import { Footer } from "../../../components/footer";
 import { Navbar } from "../../../components/navbar";
+import { ProfileVoting } from "../../../components/profile-voting";
 import {
   getPersonBySlug,
   people,
@@ -245,6 +246,8 @@ export default async function PersonProfilePage({
                 <p className="bandLabel">{getBandLabel("controversy", scores.controversy)}</p>
               </div>
             </div>
+
+            <ProfileVoting slug={resolvedParams.slug} />
 
             <div className="profileDetailGrid">
               <article className="infoCard card-visible">

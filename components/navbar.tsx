@@ -53,6 +53,7 @@ export function Navbar() {
 
           <nav className="navLinks">
             <a href="/top-100">Rankings</a>
+            <a href="/community-rankings">Community</a>
             <a href="/categories">Categories</a>
             <a href="/how-it-works">How It Works</a>
             <a href="/about">About</a>
@@ -110,6 +111,7 @@ export function Navbar() {
 
         <div className={`mobileMenu${open ? " open" : ""}`} role="navigation" aria-label="Mobile navigation">
           <a href="/top-100" onClick={close}>Rankings</a>
+          <a href="/community-rankings" onClick={close}>Community</a>
           <a href="/categories" onClick={close}>Categories</a>
           <a href="/how-it-works" onClick={close}>How It Works</a>
           <a href="/about" onClick={close}>About</a>

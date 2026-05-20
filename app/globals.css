@@ -3455,3 +3455,166 @@ progress {
 .dashboardRowLink {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Voting Component Styles */
+.voteButton {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.voteButtonRow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.voteBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.voteBtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.voteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voteBtnUp.active {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+
+.voteBtnDown.active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.voteIcon {
+  font-size: 1.5rem;
+}
+
+.voteLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.voteStats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 120px;
+}
+
+.voteNetScore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.voteNetScore strong {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.voteNetScore span {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.voteBreakdown {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+}
+
+.voteUp {
+  color: #4ade80;
+}
+
+.voteDown {
+  color: #f87171;
+}
+
+.voteUserStatus {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Compact Vote Button for tables */
+.voteButtonCompact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+.voteButtonCompact .voteBtn {
+  min-width: unset;
+  padding: 4px 8px;
+  font-size: 1rem;
+  flex-direction: row;
+  gap: 0;
+}
+
+.voteButtonCompact .voteCount {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .voteButtonRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .voteBtn {
+    width: 100%;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .voteStats {
+    width: 100%;
+    padding: 16px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+}
