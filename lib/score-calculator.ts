@@ -333,21 +333,6 @@ export class ScoreCalculator {
           disputeVolume,
         },
       },
-          socialReach,
-          searchVolume,
-          eventImpact,
-        },
-      },
-      controversy: {
-        score: controversyScore,
-        components: {
-          negativeCoverage,
-          scandalFrequency,
-          polarization,
-          criticismIntensity,
-          disputeVolume,
-        },
-      },
     };
   }
 
