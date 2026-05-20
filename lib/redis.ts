@@ -190,10 +190,14 @@ export async function getHistoricalData(slug: string, daysAgo: number): Promise<
     const rangeStart = targetTime - (12 * 60 * 60 * 1000);
     const rangeEnd = targetTime + (12 * 60 * 60 * 1000);
     
-    const snapshots = await client.zrangebyscore(
+    // Use zrange with BYSCORE option (Upstash Redis syntax)
+    const snapshots = await client.zrange(
       CacheKeys.personHistory(slug),
       rangeStart,
-      rangeEnd
+      rangeEnd,
+      {
+        byScore: true,
+      }
     );
 
     if (!snapshots || snapshots.length === 0) {
