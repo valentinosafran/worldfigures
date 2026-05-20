@@ -31,6 +31,9 @@ export class WikipediaFetcher {
           rvprop: 'timestamp',
           rvlimit: 1,
         },
+        headers: {
+          'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
+        },
         timeout: 10000,
       });
 
@@ -89,7 +92,12 @@ export class WikipediaFetcher {
 
       const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/${encodeURIComponent(urlSafeName)}/daily/${formatDate(startDate)}/${formatDate(endDate)}`;
 
-      const response = await axios.get(url, { timeout: 10000 });
+      const response = await axios.get(url, { 
+        headers: {
+          'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
+        },
+        timeout: 10000 
+      });
 
       if (response.data.items) {
         const totalViews = response.data.items.reduce(
@@ -161,6 +169,7 @@ export class WikipediaFetcher {
           limit: 5,
         },
         headers: {
+          'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
           'Api-User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
         },
         timeout: 10000,
