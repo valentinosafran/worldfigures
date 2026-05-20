@@ -320,7 +320,7 @@ export function Top100DashboardClient() {
         )}
 
         {!isLoading && topNarratives.length > 0 && (
-          <div className="dashboardNarratives infoCard">
+          <div className="dashboardNarratives infoCard card-visible">
             <div className="panelHeader">
               <span>Key narratives now</span>
               <span>Shared discussion themes</span>
