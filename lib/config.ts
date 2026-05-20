@@ -39,10 +39,10 @@ export const SCORING_WEIGHTS = {
     socialSentiment: 0.1,
   },
   trust: {
-    institutional: 0.35,
-    factCheck: 0.25,
-    expertEval: 0.25,
-    consistency: 0.15,
+    institutional: 0.45,      // Increased from 0.35 - this varies most
+    factCheck: 0.30,          // Increased from 0.25
+    expertEval: 0.15,         // Decreased from 0.25 - least variable
+    consistency: 0.10,        // Decreased from 0.15
   },
   impact: {
     mediaCoverage: 0.35,

@@ -337,7 +337,7 @@ export class ScoreCalculator {
   }
 
   private estimateInstitutionalTrust(wikiData: any, articles: any[]): number {
-    if (articles.length === 0) return 40;
+    if (articles.length === 0) return 35;
     
     // Look for trust-related keywords in coverage
     const trustKeywords = [
@@ -364,24 +364,24 @@ export class ScoreCalculator {
       sentimentSum += (a.sentiment || 0);
     });
     
-    // Base score on Wikipedia presence
-    const baseScore = wikiData ? 55 : 35;
+    // MINIMUM base scores for MAXIMUM room to differentiate  
+    const baseScore = wikiData ? 35 : 20;
     
     if (trustCount > 0 || distrustCount > 0) {
-      // We have keyword data
+      // MAXIMUM POSSIBLE keyword scaling (×700!)
       const trustDiff = trustCount - distrustCount;
-      const adjustment = (trustDiff / articles.length) * 120;
-      return Math.max(25, Math.min(90, Math.round(baseScore + adjustment)));
+      const adjustment = (trustDiff / articles.length) * 700;
+      return Math.max(5, Math.min(100, Math.round(baseScore + adjustment)));
     } else {
-      // No keywords - amplify sentiment differences
+      // MAXIMUM POSSIBLE sentiment amplification (×1000!)
       const avgSentiment = sentimentSum / articles.length;
-      const sentimentAdjustment = avgSentiment * 180;
-      return Math.max(25, Math.min(90, Math.round(baseScore + sentimentAdjustment)));
+      const sentimentAdjustment = avgSentiment * 1000;
+      return Math.max(5, Math.min(100, Math.round(baseScore + sentimentAdjustment)));
     }
   }
 
   private estimateFactCheckScore(articles: any[]): number {
-    if (articles.length === 0) return 50;
+    if (articles.length === 0) return 45;
     
     // Enhanced fact-check keywords
     const truthfulKeywords = [
@@ -406,20 +406,21 @@ export class ScoreCalculator {
     
     // If no fact-check mentions, use positive vs negative sentiment as proxy
     if (truthfulCount === 0 && falsehoodCount === 0) {
-      const positiveSentiment = articles.filter(a => (a.sentiment || 0) > 0.2).length;
-      const negativeSentiment = articles.filter(a => (a.sentiment || 0) < -0.2).length;
+      const positiveSentiment = articles.filter(a => (a.sentiment || 0) > 0.15).length;
+      const negativeSentiment = articles.filter(a => (a.sentiment || 0) < -0.15).length;
       const sentimentRatio = (positiveSentiment - negativeSentiment) / articles.length;
-      return Math.max(30, Math.min(70, Math.round(50 + (sentimentRatio * 60))));
+      // HARSHER grading (×120 instead of ×60)
+      return Math.max(20, Math.min(75, Math.round(45 + (sentimentRatio * 120))));
     }
     
-    // Calculate based on truthful vs falsehood mentions
+    // EXTREME scaling (×450 instead of ×300)
     const ratio = (truthfulCount - falsehoodCount) / articles.length;
-    return Math.max(20, Math.min(90, Math.round(50 + (ratio * 150))));
+    return Math.max(10, Math.min(98, Math.round(45 + (ratio * 450))));
   }
 
   private estimateExpertEvaluation(wikiData: any): number {
-    // More nuanced evaluation based on Wikipedia presence and quality
-    if (!wikiData) return 30; // No Wikipedia presence = lower expert recognition
+    // EXTREME range for maximum differentiation
+    if (!wikiData) return 10; // Much lower for no Wikipedia
 
     const categories = wikiData.categories || [];
     
@@ -437,15 +438,14 @@ export class ScoreCalculator {
       )
     ).length;
     
-    // Scale based on number of prestige indicators
-    // 0 indicators = 40, 1 = 50, 2 = 60, 3 = 70, 4+ = 80
-    const baseScore = 40 + Math.min(40, prestigeCount * 10);
+    // MUCH WIDER scale: 0 indicators = 25, 1 = 40, 2 = 55, 3 = 70, 4 = 85, 5+ = 95
+    const baseScore = 25 + Math.min(70, prestigeCount * 15);
     
     return baseScore;
   }
 
   private estimateConsistency(articles: any[]): number {
-    if (articles.length === 0) return 50;
+    if (articles.length === 0) return 45;
 
     // Look for consistency/flip-flop keywords
     const consistencyKeywords = [
@@ -473,17 +473,17 @@ export class ScoreCalculator {
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
     
-    // Low variance = more consistent sentiment
-    const sentimentConsistency = Math.max(0, 100 - (variance * 200));
+    // EXTREME variance penalty (×450 instead of ×300)
+    const sentimentConsistency = Math.max(0, 100 - (variance * 450));
     
-    // Keyword-based score (more decisive)
+    // EXTREME keyword scaling (×450 instead of ×300)
     const keywordDiff = consistentCount - inconsistentCount;
-    const keywordScore = 50 + (keywordDiff / articles.length) * 150;
+    const keywordScore = 40 + (keywordDiff / articles.length) * 450;
     
-    // Combine: 70% keywords, 30% sentiment variance
-    const combined = (keywordScore * 0.7) + (sentimentConsistency * 0.3);
+    // Combine: 80% keywords, 20% sentiment variance
+    const combined = (keywordScore * 0.8) + (sentimentConsistency * 0.2);
     
-    return Math.max(40, Math.min(100, Math.round(combined)));
+    return Math.max(15, Math.min(100, Math.round(combined)));
   }
 
   private estimateScandalFrequency(articles: any[]): number {
@@ -501,9 +501,9 @@ export class ScoreCalculator {
       return scandalKeywords.some(keyword => text.includes(keyword));
     });
 
-    // More aggressive scaling: 10%+ scandal articles = high score
+    // ULTRA-AGGRESSIVE scaling (×700 instead of ×400)
     const percentage = (scandalArticles.length / articles.length);
-    return Math.min(100, Math.round(percentage * 400));
+    return Math.min(100, Math.round(percentage * 700));
   }
 
   private estimateCriticismIntensity(articles: any[], posts: any[]): number {
@@ -522,8 +522,8 @@ export class ScoreCalculator {
       return criticismKeywords.some(keyword => text.includes(keyword));
     });
     
-    // Also consider negative sentiment articles
-    const negativeSentiments = articles.filter(a => (a.sentiment || 0) < -0.15);
+    // HARSHER negative sentiment threshold (-0.1 instead of -0.15)
+    const negativeSentiments = articles.filter(a => (a.sentiment || 0) < -0.1);
     
     // Combine both factors
     const criticismPercentage = criticismArticles.length / articles.length;
@@ -531,7 +531,8 @@ export class ScoreCalculator {
     
     const combinedScore = Math.max(criticismPercentage, negativeSentimentPercentage);
     
-    return Math.min(100, Math.round(combinedScore * 300));
+    // ULTRA-AGGRESSIVE scaling (×600 instead of ×300)
+    return Math.min(100, Math.round(combinedScore * 600));
   }
 
   private estimateDisputeVolume(articles: any[]): number {
@@ -554,11 +555,11 @@ export class ScoreCalculator {
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
     
-    // High variance (>0.3) indicates polarization
-    const polarizationScore = Math.min(50, variance * 150);
+    // HARSHER variance detection (×250 instead of ×150)
+    const polarizationScore = Math.min(60, variance * 250);
     
-    // Combine dispute keyword percentage with polarization
-    const disputePercentage = (disputeArticles.length / articles.length) * 250;
+    // ULTRA-AGGRESSIVE dispute scaling (×450 instead of ×250)
+    const disputePercentage = (disputeArticles.length / articles.length) * 450;
     
     return Math.min(100, Math.round(disputePercentage + polarizationScore));
   }
@@ -570,13 +571,13 @@ export class ScoreCalculator {
   private estimatePolarization(articles: any[]): number {
     if (articles.length === 0) return 0;
     
-    // 1. Sentiment variance (mixed opinions = polarization)
+    // 1. ULTRA-AGGRESSIVE sentiment variance (×350 instead of ×200)
     const sentiments = articles.map(a => a.sentiment || 0);
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
-    const varianceScore = Math.min(50, variance * 200);
+    const varianceScore = Math.min(60, variance * 350);
     
-    // 2. Polarization keywords
+    // 2. ULTRA-AGGRESSIVE polarization keywords (×700 instead of ×400)
     const polarizationKeywords = [
       'polarizing', 'divisive', 'divided', 'controversial', 'contentious',
       'split', 'partisan', 'bipartisan', 'supporters', 'critics',
@@ -588,7 +589,7 @@ export class ScoreCalculator {
       return polarizationKeywords.some(keyword => text.includes(keyword));
     });
     
-    const keywordScore = Math.min(50, (polarizingArticles.length / articles.length) * 400);
+    const keywordScore = Math.min(60, (polarizingArticles.length / articles.length) * 700);
     
     return Math.round(varianceScore + keywordScore);
   }

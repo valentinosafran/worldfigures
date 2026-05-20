@@ -222,16 +222,16 @@ export class NewsAPIFetcher {
     const avgSentiment = sentimentSum / articles.length;
     
     if (keywordHits > 0) {
-      // We have keyword data - use it with sentiment as supporting factor
-      const keywordComponent = (approvalScore / articles.length) * 35;
-      const sentimentComponent = avgSentiment * 40;
+      // EXTREME keyword weighting - even more decisive
+      const keywordComponent = (approvalScore / articles.length) * 50;
+      const sentimentComponent = avgSentiment * 60;
       const combined = 50 + keywordComponent + sentimentComponent;
-      return Math.max(20, Math.min(85, Math.round(combined)));
+      return Math.max(10, Math.min(95, Math.round(combined)));
     } else {
-      // No keywords - use ultra-aggressive sentiment scaling
-      // Amplify tiny differences: -0.12 to +0.12 sentiment → 20 to 80 range
-      const amplified = 50 + (avgSentiment * 250);
-      return Math.max(20, Math.min(80, Math.round(amplified)));
+      // MAXIMUM sentiment scaling (×500 instead of ×350)
+      // Extract maximum spread from minimal differences
+      const amplified = 50 + (avgSentiment * 500);
+      return Math.max(10, Math.min(90, Math.round(amplified)));
     }
   }
 
@@ -268,16 +268,16 @@ export class NewsAPIFetcher {
       const sentiment = a.sentiment || 0;
       const text = `${a.title} ${a.description}`.toLowerCase();
       
-      // Count if negative sentiment OR contains controversy keywords
-      const hasNegativeSentiment = sentiment < -0.05;  // More sensitive threshold
+      // HARSHER threshold (0 instead of -0.05)
+      const hasNegativeSentiment = sentiment < 0;
       const hasControversyKeywords = controversyKeywords.some(kw => text.includes(kw));
       
       return hasNegativeSentiment || hasControversyKeywords;
     });
 
-    // Be more aggressive: even 20% negative = high score
+    // ULTRA-AGGRESSIVE scaling (×350 instead of ×200)
     const percentage = negativeArticles.length / articles.length;
-    return Math.min(100, Math.round(percentage * 200));
+    return Math.min(100, Math.round(percentage * 350));
   }
 }
 
