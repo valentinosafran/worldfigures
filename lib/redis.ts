@@ -205,7 +205,7 @@ export async function getHistoricalData(slug: string, daysAgo: number): Promise<
     }
 
     // Return the closest snapshot
-    const parsed = snapshots.map((s: string) => JSON.parse(s));
+    const parsed = snapshots.map((s) => JSON.parse(s as string));
     parsed.sort((a, b) => Math.abs(a.timestamp - targetTime) - Math.abs(b.timestamp - targetTime));
     
     return parsed[0];
