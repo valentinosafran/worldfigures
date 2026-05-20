@@ -110,4 +110,9 @@ export type AggregatedData = {
   breakdown: ScoreBreakdown;
   confidence: number;
   lastUpdated: string;
+  keyTopics: string[];
+  movementNotes: string[];
+  strengthSignals: string[];
+  riskSignals: string[];
+  articles: NewsArticle[];
 };

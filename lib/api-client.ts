@@ -39,6 +39,18 @@ export interface APIPersonData {
     impact: number;
     controversy: number;
   } | null;
+  keyTopics: string[];
+  movementNotes: string[];
+  strengthSignals: string[];
+  riskSignals: string[];
+  articles: Array<{
+    title: string;
+    description: string;
+    url: string;
+    source: string;
+    publishedAt: string;
+    sentiment?: number;
+  }>;
 }
 
 export interface APIResponse {

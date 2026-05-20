@@ -2,6 +2,7 @@ import { newsAPIFetcher } from './data-fetchers/news-api';
 import { redditFetcher } from './data-fetchers/reddit';
 import { googleTrendsFetcher } from './data-fetchers/google-trends';
 import { wikipediaFetcher } from './data-fetchers/wikipedia';
+import { contentAnalyzer } from './content-analyzer';
 import { SCORING_WEIGHTS } from './config';
 import { getWikipediaPageName } from './wikipedia-mappings';
 import { ScoreBreakdown, AggregatedData, DataSource } from '../types';
@@ -70,6 +71,11 @@ export class ScoreCalculator {
 
     const overallConfidence = this.calculateOverallConfidence(activeSources);
 
+    // Analyze content to extract insights
+    console.log('📊 Analyzing content for insights...');
+    const insights = contentAnalyzer.analyzeProfile(newsArticles, breakdown, trendData);
+    console.log(`✅ Insights extracted: ${insights.keyTopics.length} topics, ${insights.articles.length} articles`);
+
     return {
       personSlug,
       personName,
@@ -77,6 +83,11 @@ export class ScoreCalculator {
       breakdown,
       confidence: overallConfidence,
       lastUpdated: new Date().toISOString(),
+      keyTopics: insights.keyTopics,
+      movementNotes: insights.movementNotes,
+      strengthSignals: insights.strengthSignals,
+      riskSignals: insights.riskSignals,
+      articles: insights.articles,
     };
   }
 

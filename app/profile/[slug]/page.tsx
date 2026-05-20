@@ -85,6 +85,13 @@ export default async function PersonProfilePage({
   const signalScore = apiData?.signalScore || 0;
   const movement7d = apiData?.movement7d || null;
   
+  // Use dynamic insights from API or fallback to static data
+  const keyTopics = apiData?.keyTopics || person.keyTopics;
+  const movementNotes = apiData?.movementNotes || person.trendNotes;
+  const strengthSignals = apiData?.strengthSignals || person.strengths;
+  const riskSignals = apiData?.riskSignals || person.risks;
+  const articles = apiData?.articles || [];
+  
   // Calculate dynamic label based on live scores
   const label = calculateLabel(scores);
 
@@ -243,8 +250,8 @@ export default async function PersonProfilePage({
               <article className="infoCard card-visible">
                 <h3>Key topics</h3>
                 <ul className="profileList">
-                  {person.keyTopics.map((topic) => (
-                    <li key={topic}>{topic}</li>
+                  {keyTopics.map((topic, idx) => (
+                    <li key={`${topic}-${idx}`}>{topic}</li>
                   ))}
                 </ul>
               </article>
@@ -252,8 +259,8 @@ export default async function PersonProfilePage({
               <article className="infoCard card-visible">
                 <h3>Recent movement notes</h3>
                 <ul className="profileList">
-                  {person.trendNotes.map((note) => (
-                    <li key={note}>{note}</li>
+                  {movementNotes.map((note, idx) => (
+                    <li key={`${note}-${idx}`}>{note}</li>
                   ))}
                 </ul>
               </article>
@@ -261,8 +268,8 @@ export default async function PersonProfilePage({
               <article className="infoCard card-visible">
                 <h3>Strength signals</h3>
                 <ul className="profileList">
-                  {person.strengths.map((item) => (
-                    <li key={item}>{item}</li>
+                  {strengthSignals.map((item, idx) => (
+                    <li key={`${item}-${idx}`}>{item}</li>
                   ))}
                 </ul>
               </article>
@@ -270,12 +277,99 @@ export default async function PersonProfilePage({
               <article className="infoCard card-visible">
                 <h3>Risk signals</h3>
                 <ul className="profileList">
-                  {person.risks.map((item) => (
-                    <li key={item}>{item}</li>
+                  {riskSignals.map((item, idx) => (
+                    <li key={`${item}-${idx}`}>{item}</li>
                   ))}
                 </ul>
               </article>
             </div>
+
+            {articles.length > 0 && (
+              <article className="infoCard card-visible" style={{ marginTop: '24px' }}>
+                <h3>Latest News Coverage</h3>
+                <p style={{ fontSize: '14px', color: '#94a3b8', marginBottom: '16px' }}>
+                  Recent articles from NewsAPI · Updated {lastUpdated}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {articles.map((article, idx) => (
+                    <a 
+                      href={article.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      key={`${article.url}-${idx}`}
+                      className="articleCard"
+                      style={{
+                        display: 'block',
+                        padding: '16px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        textDecoration: 'none',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                        <h4 style={{ 
+                          fontSize: '16px', 
+                          fontWeight: '600', 
+                          color: '#e2e8f0',
+                          margin: 0,
+                          flex: 1,
+                          lineHeight: '1.5'
+                        }}>
+                          {article.title}
+                        </h4>
+                        {article.sentiment && (
+                          <span style={{
+                            fontSize: '12px',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            marginLeft: '12px',
+                            backgroundColor: article.sentiment > 0.1 
+                              ? 'rgba(34, 197, 94, 0.2)'
+                              : article.sentiment < -0.1
+                              ? 'rgba(239, 68, 68, 0.2)'
+                              : 'rgba(100, 116, 139, 0.2)',
+                            color: article.sentiment > 0.1
+                              ? '#86efac'
+                              : article.sentiment < -0.1
+                              ? '#fca5a5'
+                              : '#94a3b8',
+                          }}>
+                            {article.sentiment > 0.1 ? '↗' : article.sentiment < -0.1 ? '↘' : '→'}
+                          </span>
+                        )}
+                      </div>
+                      {article.description && (
+                        <p style={{ 
+                          fontSize: '14px', 
+                          color: '#94a3b8',
+                          margin: '8px 0',
+                          lineHeight: '1.6'
+                        }}>
+                          {article.description}
+                        </p>
+                      )}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        fontSize: '12px',
+                        color: '#64748b',
+                        marginTop: '8px'
+                      }}>
+                        <span>{article.source}</span>
+                        <span>{new Date(article.publishedAt).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </article>
+            )}
           </article>
         </div>
       </section>
