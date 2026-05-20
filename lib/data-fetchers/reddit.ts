@@ -21,7 +21,7 @@ export class RedditFetcher {
     const { clientId, clientSecret, userAgent } = API_CONFIG.reddit;
 
     if (!clientId || !clientSecret) {
-      console.warn('Reddit API credentials not configured');
+      console.warn('⚠️ Reddit API credentials not configured (set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET)');
       return '';
     }
 
@@ -37,15 +37,20 @@ export class RedditFetcher {
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': userAgent,
           },
+          timeout: 10000,
         }
       );
 
       this.accessToken = response.data.access_token;
       this.tokenExpiry = Date.now() + (response.data.expires_in * 1000);
       
+      console.log('✅ Reddit: Access token obtained');
       return this.accessToken || '';
-    } catch (error) {
-      console.error('Error getting Reddit token:', error);
+    } catch (error: any) {
+      console.error('❌ Error getting Reddit token:', error.message);
+      if (error.response) {
+        console.error('Reddit Auth Error:', error.response.status, error.response.data);
+      }
       return '';
     }
   }
@@ -58,8 +63,13 @@ export class RedditFetcher {
     subreddits: string[] = ['worldnews', 'news', 'politics'],
     limit: number = 100
   ): Promise<RedditPost[]> {
+    console.log(`🔴 Fetching Reddit data for "${personName}"...`);
+    
     const token = await this.getAccessToken();
-    if (!token) return [];
+    if (!token) {
+      console.warn('⚠️ Reddit: No access token (credentials not configured)');
+      return [];
+    }
 
     const allPosts: RedditPost[] = [];
 
@@ -78,6 +88,7 @@ export class RedditFetcher {
               Authorization: `Bearer ${token}`,
               'User-Agent': API_CONFIG.reddit.userAgent,
             },
+            timeout: 10000,
           }
         );
 
@@ -96,12 +107,17 @@ export class RedditFetcher {
           });
 
           allPosts.push(...posts);
+          console.log(`✅ Reddit: Found ${posts.length} posts in r/${subreddit}`);
         }
       }
 
+      console.log(`✅ Reddit: Total ${allPosts.length} posts found`);
       return allPosts;
-    } catch (error) {
-      console.error('Error searching Reddit:', error);
+    } catch (error: any) {
+      console.error('❌ Error searching Reddit:', error.message);
+      if (error.response) {
+        console.error('Reddit Error:', error.response.status, error.response.data);
+      }
       return [];
     }
   }

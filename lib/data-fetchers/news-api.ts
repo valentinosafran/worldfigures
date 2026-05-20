@@ -19,9 +19,11 @@ export class NewsAPIFetcher {
    */
   async fetchNews(personName: string, daysBack: number = 30): Promise<NewsArticle[]> {
     if (!this.apiKey) {
-      console.warn('NewsAPI key not configured');
+      console.error('❌ NewsAPI key not configured - set NEWSAPI_KEY environment variable');
       return [];
     }
+
+    console.log(`📰 Fetching news for "${personName}" from NewsAPI...`);
 
     try {
       const fromDate = new Date();
@@ -36,10 +38,13 @@ export class NewsAPIFetcher {
           apiKey: this.apiKey,
           language: 'en',
         },
+        timeout: 10000, // 10 second timeout
       });
 
+      console.log(`📰 NewsAPI response status: ${response.data.status}`);
+
       if (response.data.status === 'ok') {
-        return response.data.articles.map((article: any) => ({
+        const articles = response.data.articles.map((article: any) => ({
           title: article.title,
           description: article.description || '',
           url: article.url,
@@ -49,11 +54,18 @@ export class NewsAPIFetcher {
             `${article.title} ${article.description || ''}`
           ),
         }));
+        
+        console.log(`✅ NewsAPI: Found ${articles.length} articles`);
+        return articles;
       }
 
+      console.warn(`⚠️ NewsAPI returned status: ${response.data.status}`);
       return [];
-    } catch (error) {
-      console.error('Error fetching news:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching news:', error.message);
+      if (error.response) {
+        console.error('NewsAPI Error Response:', error.response.data);
+      }
       return [];
     }
   }

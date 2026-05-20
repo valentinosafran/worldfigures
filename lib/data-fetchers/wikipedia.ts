@@ -13,6 +13,8 @@ export class WikipediaFetcher {
    * Get Wikipedia page data
    */
   async getPageData(pageName: string): Promise<WikipediaData | null> {
+    console.log(`📖 Fetching Wikipedia data for "${pageName}"...`);
+    
     try {
       // Get page extract and info
       const response = await axios.get(this.baseUrl, {
@@ -26,15 +28,22 @@ export class WikipediaFetcher {
           rvprop: 'timestamp',
           rvlimit: 1,
         },
+        timeout: 10000,
       });
 
       const pages = response.data.query?.pages;
-      if (!pages) return null;
+      if (!pages) {
+        console.warn('⚠️ Wikipedia: No pages in response');
+        return null;
+      }
 
       const pageId = Object.keys(pages)[0];
       const page = pages[pageId];
 
-      if (pageId === '-1' || !page) return null;
+      if (pageId === '-1' || !page) {
+        console.warn(`⚠️ Wikipedia: Page not found for "${pageName}"`);
+        return null;
+      }
 
       const categories = page.categories?.map((cat: any) => cat.title.replace('Category:', '')) || [];
       const lastEdited = page.revisions?.[0]?.timestamp || '';
@@ -42,14 +51,16 @@ export class WikipediaFetcher {
       // Get page view statistics
       const pageViews = await this.getPageViews(pageName);
 
+      console.log(`✅ Wikipedia: Found page with ${pageViews} views (30 days)`);
+
       return {
         pageViews,
         extract: page.extract || '',
         categories,
         lastEdited,
       };
-    } catch (error) {
-      console.error('Error fetching Wikipedia data:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching Wikipedia data:', error.message);
       return null;
     }
   }
@@ -68,7 +79,7 @@ export class WikipediaFetcher {
 
       const url = `https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/all-agents/${encodeURIComponent(pageName)}/daily/${formatDate(startDate)}/${formatDate(endDate)}`;
 
-      const response = await axios.get(url);
+      const response = await axios.get(url, { timeout: 10000 });
 
       if (response.data.items) {
         const totalViews = response.data.items.reduce(
@@ -79,8 +90,8 @@ export class WikipediaFetcher {
       }
 
       return 0;
-    } catch (error) {
-      console.error('Error fetching page views:', error);
+    } catch (error: any) {
+      console.error('❌ Error fetching Wikipedia page views:', error.message);
       return 0;
     }
   }
