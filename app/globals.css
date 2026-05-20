@@ -3420,3 +3420,38 @@ progress {
     padding: 20px;
   }
 }
+
+/* Loading skeleton animations for Top 100 Dashboard */
+@keyframes skeletonPulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.dashboardRowSkeleton {
+  pointer-events: none;
+  user-select: none;
+}
+
+.dashboardRowSkeleton div {
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+/* Smooth fade-in for loaded rows */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboardRowLink {
+  animation: fadeIn 0.3s ease-out;
+}
