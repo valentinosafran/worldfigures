@@ -5,11 +5,11 @@ export async function ProfilePreview() {
   const apiData = await fetchPersonData("emmanuel-macron");
   
   // Use API scores if available, fallback to defaults
-  const scores = apiData?.data ? {
-    approval: apiData.data.breakdown.approval.score,
-    trust: apiData.data.breakdown.trust.score,
-    impact: apiData.data.breakdown.impact.score,
-    controversy: apiData.data.breakdown.controversy.score,
+  const scores = apiData ? {
+    approval: apiData.breakdown.approval.score,
+    trust: apiData.breakdown.trust.score,
+    impact: apiData.breakdown.impact.score,
+    controversy: apiData.breakdown.controversy.score,
   } : {
     approval: 61,
     trust: 54,
