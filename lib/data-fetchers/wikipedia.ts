@@ -139,6 +139,8 @@ export class WikipediaFetcher {
    * Search for a person's Wikipedia page
    */
   async searchPage(personName: string): Promise<string | null> {
+    console.log(`🔍 Searching Wikipedia for "${personName}"...`);
+    
     try {
       const response = await axios.get(this.baseUrl, {
         params: {
@@ -146,21 +148,30 @@ export class WikipediaFetcher {
           format: 'json',
           list: 'search',
           srsearch: personName,
-          srlimit: 1,
+          srlimit: 5, // Get top 5 results
         },
+        timeout: 10000,
       });
 
       const results = response.data.query?.search;
       if (results && results.length > 0) {
+        console.log(`✅ Wikipedia search: Found ${results.length} results`);
+        results.forEach((r: any, i: number) => {
+          console.log(`  ${i + 1}. "${r.title}" (score: ${r.score || 'N/A'})`);
+        });
+        
+        // Return the top result
         return results[0].title;
       }
 
+      console.warn(`⚠️ Wikipedia search: No results for "${personName}"`);
       return null;
-    } catch (error) {
-      console.error('Error searching Wikipedia:', error);
+    } catch (error: any) {
+      console.error('❌ Error searching Wikipedia:', error.message);
       return null;
     }
   }
+
 }
 
 export const wikipediaFetcher = new WikipediaFetcher();

@@ -3,6 +3,7 @@ import { redditFetcher } from './data-fetchers/reddit';
 import { googleTrendsFetcher } from './data-fetchers/google-trends';
 import { wikipediaFetcher } from './data-fetchers/wikipedia';
 import { SCORING_WEIGHTS } from './config';
+import { getWikipediaPageName } from './wikipedia-mappings';
 import { ScoreBreakdown, AggregatedData, DataSource } from '../types';
 
 export class ScoreCalculator {
@@ -14,12 +15,16 @@ export class ScoreCalculator {
 
     const startTime = Date.now();
 
+    // Get proper Wikipedia page name
+    const wikiPageName = getWikipediaPageName(personSlug, personName);
+    console.log(`Wikipedia page name: "${wikiPageName}"`);
+
     // Fetch data from all sources in parallel
     const [newsArticles, redditPosts, trendData, wikiPage] = await Promise.all([
       newsAPIFetcher.fetchNews(personName, 30),
       redditFetcher.searchReddit(personName),
       googleTrendsFetcher.getInterestOverTime(personName),
-      this.getWikiData(personName),
+      this.getWikiData(wikiPageName),
     ]);
 
     console.log(`Data fetched in ${Date.now() - startTime}ms`);
@@ -79,15 +84,23 @@ export class ScoreCalculator {
    * Get Wikipedia data for a person
    */
   private async getWikiData(personName: string) {
+    console.log(`\n🔎 Looking up Wikipedia for: "${personName}"`);
+    
     // Try direct page lookup first
     let wikiData = await wikipediaFetcher.getPageData(personName);
     
     // If not found, try searching
     if (!wikiData) {
+      console.log(`⚠️ Direct lookup failed, searching Wikipedia...`);
       const searchResult = await wikipediaFetcher.searchPage(personName);
       if (searchResult) {
+        console.log(`✅ Found via search: "${searchResult}"`);
         wikiData = await wikipediaFetcher.getPageData(searchResult);
+      } else {
+        console.warn(`❌ No Wikipedia page found for "${personName}"`);
       }
+    } else {
+      console.log(`✅ Wikipedia: Direct lookup successful`);
     }
 
     return wikiData;
