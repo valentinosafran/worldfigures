@@ -546,7 +546,7 @@ p {
 .dashboardHighlights {
   display: grid;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .dashboardStatCard {
@@ -2179,7 +2179,7 @@ textarea.formInput {
 }
 
 .dashboardNarratives {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   padding: 18px 20px;
 }
 
@@ -3616,5 +3616,16 @@ progress {
     border: 1px solid var(--border);
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.03);
+  }
+}
+
+/* Reduce space before dashboard board */
+.dashboardBoard {
+  margin-top: 8px;
+}
+
+@media (max-width: 960px) {
+  .dashboardBoard {
+    margin-top: 8px;
   }
 }
