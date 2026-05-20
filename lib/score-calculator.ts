@@ -19,24 +19,28 @@ export class ScoreCalculator {
     const wikiPageName = getWikipediaPageName(personSlug, personName);
     console.log(`Wikipedia page name: "${wikiPageName}"`);
 
+    // Note: Reddit API is no longer accessible to third-party apps (as of 2023)
+    // We'll try to fetch but expect 0 results - scores will auto-adjust
+    console.log(`⚠️  Reddit API access restricted - scores will be calculated without Reddit data`);
+
     // Fetch data from all sources in parallel
     const [newsArticles, redditPosts, trendData, wikiPage] = await Promise.all([
       newsAPIFetcher.fetchNews(personName, 30),
-      redditFetcher.searchReddit(personName),
+      Promise.resolve([]), // Skip Reddit - API no longer accessible
       googleTrendsFetcher.getInterestOverTime(personName),
       this.getWikiData(wikiPageName),
     ]);
 
     console.log(`Data fetched in ${Date.now() - startTime}ms`);
     console.log(`- News articles: ${newsArticles.length}`);
-    console.log(`- Reddit posts: ${redditPosts.length}`);
+    console.log(`- Reddit posts: ${redditPosts.length} (skipped - API restricted)`);
     console.log(`- Trend data points: ${trendData.length}`);
     console.log(`- Wikipedia data: ${wikiPage ? 'found' : 'not found'}`);
 
     // Calculate component scores
     const breakdown = this.calculateBreakdown(newsArticles, redditPosts, trendData, wikiPage);
 
-    // Prepare data sources metadata
+    // Prepare data sources metadata - only include sources with data
     const sources: DataSource[] = [
       {
         type: 'news',
@@ -44,13 +48,6 @@ export class ScoreCalculator {
         data: { articleCount: newsArticles.length },
         timestamp: new Date().toISOString(),
         confidence: this.calculateSourceConfidence(newsArticles.length, 50),
-      },
-      {
-        type: 'social',
-        name: 'Reddit',
-        data: { postCount: redditPosts.length },
-        timestamp: new Date().toISOString(),
-        confidence: this.calculateSourceConfidence(redditPosts.length, 30),
       },
       {
         type: 'trends',
@@ -68,12 +65,15 @@ export class ScoreCalculator {
       },
     ];
 
-    const overallConfidence = this.calculateOverallConfidence(sources);
+    // Filter out sources with 0 confidence (no data)
+    const activeSources = sources.filter(s => s.confidence > 0);
+
+    const overallConfidence = this.calculateOverallConfidence(activeSources);
 
     return {
       personSlug,
       personName,
-      sources,
+      sources: activeSources,
       breakdown,
       confidence: overallConfidence,
       lastUpdated: new Date().toISOString(),
@@ -107,7 +107,7 @@ export class ScoreCalculator {
   }
 
   /**
-   * Calculate all score components
+   * Calculate all score components with dynamic weight adjustment for missing data
    */
   private calculateBreakdown(
     newsArticles: any[],
@@ -117,24 +117,52 @@ export class ScoreCalculator {
   ): ScoreBreakdown {
     console.log('\n🧮 Calculating score breakdown...');
     
-    // APPROVAL COMPONENTS
+    const hasRedditData = redditPosts.length > 0;
+    const hasTrendsData = trendData.length > 0;
+    
+    // APPROVAL COMPONENTS - exclude Reddit if no data
     const newsSentiment = newsAPIFetcher.getSentimentScore(newsArticles);
-    const socialSentiment = redditFetcher.getSocialSentimentScore(redditPosts);
-    const favorability = Math.round((newsSentiment + socialSentiment) / 2);
-    const pollingTrends = this.estimatePollingTrends(newsSentiment, socialSentiment);
+    const socialSentiment = hasRedditData ? redditFetcher.getSocialSentimentScore(redditPosts) : null;
+    
+    // Calculate favorability and polling trends without Reddit if missing
+    let favorability, pollingTrends;
+    if (hasRedditData) {
+      favorability = Math.round((newsSentiment + socialSentiment!) / 2);
+      pollingTrends = this.estimatePollingTrends(newsSentiment, socialSentiment!);
+    } else {
+      favorability = newsSentiment;
+      pollingTrends = newsSentiment;
+    }
 
     console.log(`  Approval components:`);
     console.log(`    News Sentiment: ${newsSentiment}`);
-    console.log(`    Social Sentiment: ${socialSentiment}`);
+    console.log(`    Social Sentiment: ${hasRedditData ? socialSentiment : 'N/A (excluded)'}`);
     console.log(`    Favorability: ${favorability}`);
     console.log(`    Polling Trends: ${pollingTrends}`);
 
-    const approvalScore = Math.round(
-      favorability * SCORING_WEIGHTS.approval.favorability +
-      newsSentiment * SCORING_WEIGHTS.approval.newsSentiment +
-      pollingTrends * SCORING_WEIGHTS.approval.pollingTrends +
-      socialSentiment * SCORING_WEIGHTS.approval.socialSentiment
-    );
+    // Dynamic weight calculation - redistribute Reddit's weight to other components
+    let approvalScore;
+    if (hasRedditData) {
+      approvalScore = Math.round(
+        favorability * SCORING_WEIGHTS.approval.favorability +
+        newsSentiment * SCORING_WEIGHTS.approval.newsSentiment +
+        pollingTrends * SCORING_WEIGHTS.approval.pollingTrends +
+        socialSentiment! * SCORING_WEIGHTS.approval.socialSentiment
+      );
+    } else {
+      // Redistribute weights: social 10% split between news (6%) and favorability (4%)
+      const adjustedWeights = {
+        favorability: 0.44, // 40% + 4%
+        newsSentiment: 0.36, // 30% + 6%
+        pollingTrends: 0.20  // 20%
+      };
+      approvalScore = Math.round(
+        favorability * adjustedWeights.favorability +
+        newsSentiment * adjustedWeights.newsSentiment +
+        pollingTrends * adjustedWeights.pollingTrends
+      );
+      console.log(`    ⚠️ Reddit data missing - weights adjusted`);
+    }
     
     console.log(`    → Approval Score: ${approvalScore}`);
 
@@ -159,51 +187,109 @@ export class ScoreCalculator {
     
     console.log(`    → Trust Score: ${trustScore}`);
 
-    // IMPACT COMPONENTS
+    // IMPACT COMPONENTS - exclude missing data sources
     const mediaCoverage = newsAPIFetcher.getCoverageScore(newsArticles);
-    const socialReach = redditFetcher.getEngagementScore(redditPosts);
-    const searchVolume = googleTrendsFetcher.getSearchVolumeScore(trendData);
+    const socialReach = hasRedditData ? redditFetcher.getEngagementScore(redditPosts) : null;
+    const searchVolume = hasTrendsData ? googleTrendsFetcher.getSearchVolumeScore(trendData) : null;
     const policyInfluence = wikipediaFetcher.getInfluenceScore(wikiData);
     const eventImpact = wikipediaFetcher.getRecencyScore(wikiData);
 
     console.log(`  Impact components:`);
     console.log(`    Media Coverage: ${mediaCoverage}`);
-    console.log(`    Social Reach: ${socialReach}`);
-    console.log(`    Search Volume: ${searchVolume}`);
+    console.log(`    Social Reach: ${hasRedditData ? socialReach : 'N/A (excluded)'}`);
+    console.log(`    Search Volume: ${hasTrendsData ? searchVolume : 'N/A (excluded)'}`);
     console.log(`    Policy Influence: ${policyInfluence}`);
     console.log(`    Event Impact: ${eventImpact}`);
 
-    const impactScore = Math.round(
-      mediaCoverage * SCORING_WEIGHTS.impact.mediaCoverage +
-      policyInfluence * SCORING_WEIGHTS.impact.policyInfluence +
-      socialReach * SCORING_WEIGHTS.impact.socialReach +
-      searchVolume * SCORING_WEIGHTS.impact.searchVolume +
-      eventImpact * SCORING_WEIGHTS.impact.eventImpact
-    );
+    // Dynamic weight calculation for impact
+    let impactScore;
+    const baseWeights = SCORING_WEIGHTS.impact;
+    
+    if (hasRedditData && hasTrendsData) {
+      // All data available
+      impactScore = Math.round(
+        mediaCoverage * baseWeights.mediaCoverage +
+        policyInfluence * baseWeights.policyInfluence +
+        socialReach! * baseWeights.socialReach +
+        searchVolume! * baseWeights.searchVolume +
+        eventImpact * baseWeights.eventImpact
+      );
+    } else {
+      // Redistribute missing weights
+      let adjustedWeights = {
+        mediaCoverage: baseWeights.mediaCoverage,
+        policyInfluence: baseWeights.policyInfluence,
+        socialReach: baseWeights.socialReach,
+        searchVolume: baseWeights.searchVolume,
+        eventImpact: baseWeights.eventImpact
+      };
+      
+      // Redistribute Reddit's 20% to media (12%) and policy (8%)
+      if (!hasRedditData) {
+        adjustedWeights.mediaCoverage += 0.12;
+        adjustedWeights.policyInfluence += 0.08;
+        adjustedWeights.socialReach = 0;
+      }
+      
+      // Redistribute Trends' 15% to media (9%) and policy (6%)
+      if (!hasTrendsData) {
+        adjustedWeights.mediaCoverage += 0.09;
+        adjustedWeights.policyInfluence += 0.06;
+        adjustedWeights.searchVolume = 0;
+      }
+      
+      impactScore = Math.round(
+        mediaCoverage * adjustedWeights.mediaCoverage +
+        policyInfluence * adjustedWeights.policyInfluence +
+        (socialReach || 0) * adjustedWeights.socialReach +
+        (searchVolume || 0) * adjustedWeights.searchVolume +
+        eventImpact * adjustedWeights.eventImpact
+      );
+      console.log(`    ⚠️ Missing data sources - weights redistributed`);
+    }
     
     console.log(`    → Impact Score: ${impactScore}`);
 
-    // CONTROVERSY COMPONENTS
+    // CONTROVERSY COMPONENTS - exclude Reddit if no data
     const negativeCoverage = newsAPIFetcher.getNegativeCoverageScore(newsArticles);
-    const polarization = redditFetcher.getPolarizationScore(redditPosts);
+    const polarization = hasRedditData ? redditFetcher.getPolarizationScore(redditPosts) : null;
     const scandalFrequency = this.estimateScandalFrequency(newsArticles);
     const criticismIntensity = this.estimateCriticismIntensity(newsArticles, redditPosts);
     const disputeVolume = this.estimateDisputeVolume(newsArticles);
 
     console.log(`  Controversy components:`);
     console.log(`    Negative Coverage: ${negativeCoverage}`);
-    console.log(`    Polarization: ${polarization}`);
+    console.log(`    Polarization: ${hasRedditData ? polarization : 'N/A (excluded)'}`);
     console.log(`    Scandal Frequency: ${scandalFrequency}`);
     console.log(`    Criticism Intensity: ${criticismIntensity}`);
     console.log(`    Dispute Volume: ${disputeVolume}`);
 
-    const controversyScore = Math.round(
-      negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
-      scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
-      polarization * SCORING_WEIGHTS.controversy.polarization +
-      criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
-      disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
-    );
+    // Dynamic weight calculation for controversy
+    let controversyScore;
+    if (hasRedditData) {
+      controversyScore = Math.round(
+        negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
+        scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
+        polarization! * SCORING_WEIGHTS.controversy.polarization +
+        criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
+        disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
+      );
+    } else {
+      // Redistribute polarization's 25% to negative coverage (15%) and scandal (10%)
+      const adjustedWeights = {
+        negativeCoverage: 0.45,  // 30% + 15%
+        scandalFrequency: 0.35,  // 25% + 10%
+        criticismIntensity: 0.15,
+        disputeVolume: 0.05
+      };
+      controversyScore = Math.round(
+        negativeCoverage * adjustedWeights.negativeCoverage +
+        scandalFrequency * adjustedWeights.scandalFrequency +
+        criticismIntensity * adjustedWeights.criticismIntensity +
+        disputeVolume * adjustedWeights.disputeVolume
+      );
+      console.log(`    ⚠️ Reddit data missing - weights adjusted`);
+    }
     
     console.log(`    → Controversy Score: ${controversyScore}`);
     console.log('');
@@ -215,7 +301,7 @@ export class ScoreCalculator {
           favorability,
           newsSentiment,
           pollingTrends,
-          socialSentiment,
+          socialSentiment: socialSentiment !== null ? socialSentiment : 0,
         },
       },
       trust: {
@@ -232,6 +318,21 @@ export class ScoreCalculator {
         components: {
           mediaCoverage,
           policyInfluence,
+          socialReach: socialReach !== null ? socialReach : 0,
+          searchVolume: searchVolume !== null ? searchVolume : 0,
+          eventImpact,
+        },
+      },
+      controversy: {
+        score: controversyScore,
+        components: {
+          negativeCoverage,
+          scandalFrequency,
+          polarization: polarization !== null ? polarization : 0,
+          criticismIntensity,
+          disputeVolume,
+        },
+      },
           socialReach,
           searchVolume,
           eventImpact,

@@ -117,13 +117,15 @@ export class WikipediaFetcher {
 
   /**
    * Calculate influence score based on Wikipedia metrics (0-100)
+   * Heavily weighted towards page views for better differentiation
    */
   getInfluenceScore(data: WikipediaData | null): number {
     if (!data) return 0;
 
     // Score based on page views (normalize to 0-100)
-    // Assume 100,000 views per month is high influence
-    const viewScore = Math.min(100, (data.pageViews / 100000) * 100);
+    // Adjusted thresholds for better distribution:
+    // 50k views = 50, 200k = 100
+    const viewScore = Math.min(100, (data.pageViews / 200000) * 100);
 
     // Score based on article length
     const lengthScore = Math.min(100, (data.extract.length / 5000) * 100);
@@ -131,8 +133,8 @@ export class WikipediaFetcher {
     // Score based on categories (more categories = more notable)
     const categoryScore = Math.min(100, data.categories.length * 5);
 
-    // Weighted average
-    return Math.round(viewScore * 0.5 + lengthScore * 0.3 + categoryScore * 0.2);
+    // Heavily weighted towards page views (70% instead of 50%)
+    return Math.round(viewScore * 0.7 + lengthScore * 0.2 + categoryScore * 0.1);
   }
 
   /**

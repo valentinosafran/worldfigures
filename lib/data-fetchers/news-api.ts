@@ -86,15 +86,68 @@ export class NewsAPIFetcher {
   }
 
   /**
-   * Analyze sentiment of text (-1 to 1 scale)
+   * Analyze sentiment of text with enhanced keyword detection (-1 to 1 scale)
    */
   private analyzeSentiment(text: string): number {
     if (!text) return 0;
     
-    const result = sentiment.analyze(text);
+    const lowerText = text.toLowerCase();
+    
+    // Strong positive indicators
+    const strongPositive = [
+      'excellent', 'outstanding', 'exceptional', 'triumph', 'breakthrough',
+      'praised', 'celebrated', 'acclaimed', 'victory', 'success', 'achieve',
+      'brilliant', 'innovative', 'revolutionary', 'historic', 'landmark'
+    ];
+    
+    // Moderate positive indicators
+    const moderatePositive = [
+      'good', 'positive', 'improved', 'growth', 'progress', 'gained',
+      'support', 'approved', 'welcomed', 'rising', 'boost', 'strengthen'
+    ];
+    
+    // Strong negative indicators
+    const strongNegative = [
+      'scandal', 'corruption', 'fraud', 'crisis', 'disaster', 'catastrophe',
+      'condemned', 'criticized', 'attacked', 'failed', 'collapsed', 'resigned',
+      'impeachment', 'investigation', 'accused', 'allegations', 'illegal',
+      'controversial', 'outrage', 'backlash', 'protest', 'resign'
+    ];
+    
+    // Moderate negative indicators
+    const moderateNegative = [
+      'concern', 'worry', 'decline', 'drop', 'fell', 'questioned',
+      'doubt', 'uncertain', 'struggle', 'challenge', 'opposition', 'dispute'
+    ];
+    
+    let sentimentScore = 0;
+    
+    // Count keywords (weighted)
+    strongPositive.forEach(word => {
+      if (lowerText.includes(word)) sentimentScore += 0.3;
+    });
+    
+    moderatePositive.forEach(word => {
+      if (lowerText.includes(word)) sentimentScore += 0.15;
+    });
+    
+    strongNegative.forEach(word => {
+      if (lowerText.includes(word)) sentimentScore -= 0.3;
+    });
+    
+    moderateNegative.forEach(word => {
+      if (lowerText.includes(word)) sentimentScore -= 0.15;
+    });
+    
+    // Also use the basic sentiment library as a baseline
+    const basicResult = sentiment.analyze(text);
+    const basicScore = basicResult.comparative * 2; // Amplify the basic score
+    
+    // Combine keyword-based and library-based scores
+    const combinedScore = (sentimentScore * 0.7) + (basicScore * 0.3);
+    
     // Normalize to -1 to 1 scale
-    const score = result.comparative;
-    return Math.max(-1, Math.min(1, score));
+    return Math.max(-1, Math.min(1, combinedScore));
   }
 
   /**
