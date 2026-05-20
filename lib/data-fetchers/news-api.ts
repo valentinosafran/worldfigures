@@ -63,7 +63,7 @@ export class NewsAPIFetcher {
         });
         
         // Log sentiment statistics
-        const avgSentiment = articles.reduce((sum, a) => sum + a.sentiment, 0) / articles.length;
+        const avgSentiment = articles.reduce((sum: number, a) => sum + a.sentiment, 0) / articles.length;
         const positiveCount = articles.filter(a => a.sentiment > 0.1).length;
         const negativeCount = articles.filter(a => a.sentiment < -0.1).length;
         const neutralCount = articles.length - positiveCount - negativeCount;
