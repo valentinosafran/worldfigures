@@ -4,16 +4,21 @@ import { Redis } from '@upstash/redis';
 let redis: Redis | null = null;
 
 export function getRedisClient(): Redis | null {
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+  // Vercel uses KV_ prefix for environment variables
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
     console.warn('⚠️  Redis not configured - caching disabled');
     return null;
   }
 
   if (!redis) {
     redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      url,
+      token,
     });
+    console.log('✅ Redis client initialized');
   }
 
   return redis;
