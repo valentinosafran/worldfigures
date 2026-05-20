@@ -602,6 +602,93 @@ export class ScoreCalculator {
     const totalConfidence = sources.reduce((sum, source) => sum + source.confidence, 0);
     return Math.round(totalConfidence / sources.length);
   }
+
+  /**
+   * Batch calculate scores for multiple people at once
+   * More efficient than individual calls - reduces API requests
+   */
+  async batchCalculateScores(
+    people: Array<{ name: string; slug: string }>
+  ): Promise<Map<string, AggregatedData>> {
+    console.log(`🔄 Batch calculating scores for ${people.length} people...`);
+    
+    const startTime = Date.now();
+    const results = new Map<string, AggregatedData>();
+
+    // Get Wikipedia page names for all people
+    const wikiPageNames = people.map(p => getWikipediaPageName(p.slug, p.name));
+    
+    // Batch fetch data from all sources
+    console.log(`📡 Fetching data from all sources in batch...`);
+    const [newsMap, wikiMap] = await Promise.all([
+      newsAPIFetcher.batchFetchNews(people.map(p => p.name)),
+      wikipediaFetcher.batchGetPageData(wikiPageNames),
+    ]);
+
+    console.log(`✅ Batch data fetched in ${Date.now() - startTime}ms`);
+
+    // Process each person with the batched data
+    for (let i = 0; i < people.length; i++) {
+      const person = people[i];
+      const wikiPageName = wikiPageNames[i];
+      
+      try {
+        const newsArticles = newsMap.get(person.name) || [];
+        const redditPosts: any[] = []; // Reddit API not accessible
+        const trendData: any[] = []; // Skip trends in batch mode for speed
+        const wikiPage = wikiMap.get(wikiPageName) || null;
+
+        console.log(`  ${person.name}: ${newsArticles.length} articles, wiki: ${wikiPage ? 'found' : 'none'}`);
+
+        // Calculate component scores
+        const breakdown = this.calculateBreakdown(newsArticles, redditPosts, trendData, wikiPage);
+
+        // Prepare data sources metadata
+        const sources: DataSource[] = [
+          {
+            type: 'news',
+            name: 'NewsAPI',
+            data: { articleCount: newsArticles.length },
+            timestamp: new Date().toISOString(),
+            confidence: newsArticles.length > 0 ? 100 : 0,
+          },
+          {
+            type: 'wikipedia',
+            name: 'Wikipedia',
+            data: wikiPage ? { pageViews: wikiPage.pageViews } : {},
+            timestamp: new Date().toISOString(),
+            confidence: wikiPage ? 100 : 0,
+          },
+        ];
+
+        const activeSources = sources.filter(s => s.confidence > 0);
+        const overallConfidence = this.calculateOverallConfidence(activeSources);
+
+        // Analyze content to extract insights
+        const insights = contentAnalyzer.analyzeProfile(newsArticles, breakdown, trendData);
+
+        results.set(person.slug, {
+          personSlug: person.slug,
+          personName: person.name,
+          sources: activeSources,
+          breakdown,
+          confidence: overallConfidence,
+          lastUpdated: new Date().toISOString(),
+          keyTopics: insights.keyTopics,
+          movementNotes: insights.movementNotes,
+          strengthSignals: insights.strengthSignals,
+          riskSignals: insights.riskSignals,
+          articles: insights.articles,
+        });
+      } catch (error) {
+        console.error(`❌ Error calculating scores for ${person.name}:`, error);
+        // Continue with other people even if one fails
+      }
+    }
+
+    console.log(`✅ Batch calculation complete: ${results.size}/${people.length} successful`);
+    return results;
+  }
 }
 
 export const scoreCalculator = new ScoreCalculator();

@@ -37,88 +37,161 @@ export async function GET(request: NextRequest) {
     const results = new Map<string, any>();
     const errors: string[] = [];
 
-    // Process people in batches to avoid overwhelming APIs
-    const batchSize = 3;
-    for (let i = 0; i < people.length; i += batchSize) {
-      const batch = people.slice(i, i + batchSize);
-      
-      await Promise.all(
-        batch.map(async (person) => {
-          try {
-            // Check individual cache
-            if (!forceRefresh) {
-              const cached = await getCachedPersonData(person.slug);
-              if (cached && 'signalScore' in cached) {
-                results.set(person.slug, cached);
-                return;
-              }
-            }
+    try {
+      // Use batch calculation for efficiency - reduces API calls significantly
+      const peopleToCalculate = people.map(p => ({
+        name: p.slug.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+        slug: p.slug,
+      }));
 
-            const personName = person.slug
-              .split('-')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
+      console.log(`📊 Using batch calculation for ${peopleToCalculate.length} profiles...`);
+      const batchResults = await scoreCalculator.batchCalculateScores(peopleToCalculate);
 
-            try {
-              const result = await scoreCalculator.calculateScores(personName, person.slug);
-              
-              // Get historical data for trend calculation
-              const historical7d = await getHistoricalData(person.slug, 7);
-              
-              // Calculate 7-day movement
-              const movement7d = historical7d 
-                ? calculateMovement(result.breakdown, historical7d.scores)
-                : null;
+      // Process batch results and add signal scores
+      for (const person of people) {
+        try {
+          const result = batchResults.get(person.slug);
+          
+          if (!result) {
+            console.error(`❌ No result for ${person.slug} in batch`);
+            errors.push(person.slug);
+            continue;
+          }
 
-              // Calculate signal score
-              const signalScore = calculateSignalScore(
-                {
-                  approval: result.breakdown.approval.score,
-                  trust: result.breakdown.trust.score,
-                  impact: result.breakdown.impact.score,
-                  controversy: result.breakdown.controversy.score,
-                },
-                result.confidence,
-                movement7d || undefined
-              );
+          // Get historical data for trend calculation
+          const historical7d = await getHistoricalData(person.slug, 7);
+          
+          // Calculate 7-day movement
+          const movement7d = historical7d 
+            ? calculateMovement(result.breakdown, historical7d.scores)
+            : null;
 
-              // Add calculated fields
-              const enrichedResult = {
-                ...result,
-                signalScore,
-                movement7d,
-              };
+          // Calculate signal score
+          const signalScore = calculateSignalScore(
+            {
+              approval: result.breakdown.approval.score,
+              trust: result.breakdown.trust.score,
+              impact: result.breakdown.impact.score,
+              controversy: result.breakdown.controversy.score,
+            },
+            result.confidence,
+            movement7d || undefined
+          );
 
-              results.set(person.slug, enrichedResult);
-              
-              // Store historical snapshot
-              await storeHistoricalSnapshot(person.slug, result);
-              
-              // Cache individual result
-              await cachePersonData(person.slug, enrichedResult);
-            } catch (calculationError) {
-              console.error(`❌ Calculation failed for ${person.slug}, attempting fallback...`, calculationError);
-              
-              // Try to get cached data as fallback
-              const cachedData = await getCachedPersonData(person.slug);
-              if (cachedData && 'signalScore' in cachedData) {
-                console.log(`✅ Using cached data as fallback for ${person.slug}`);
-                results.set(person.slug, cachedData);
-              } else {
-                console.error(`❌ No cached data available for ${person.slug}`);
-                errors.push(person.slug);
-              }
-            }
-          } catch (error) {
-            console.error(`Error processing ${person.slug}:`, error);
+          // Add calculated fields
+          const enrichedResult = {
+            ...result,
+            signalScore,
+            movement7d,
+          };
+
+          results.set(person.slug, enrichedResult);
+          
+          // Store historical snapshot
+          await storeHistoricalSnapshot(person.slug, result);
+          
+          // Cache individual result
+          await cachePersonData(person.slug, enrichedResult);
+        } catch (error) {
+          console.error(`❌ Error processing batch result for ${person.slug}:`, error);
+          
+          // Try to get cached data as fallback
+          const cachedData = await getCachedPersonData(person.slug);
+          if (cachedData && 'signalScore' in cachedData) {
+            console.log(`✅ Using cached data as fallback for ${person.slug}`);
+            results.set(person.slug, cachedData);
+          } else {
+            console.error(`❌ No cached data available for ${person.slug}`);
             errors.push(person.slug);
           }
-        })
-      );
+        }
+      }
+    } catch (batchError) {
+      console.error(`❌ Batch calculation failed, falling back to individual processing:`, batchError);
+      
+      // Fallback to individual processing if batch fails
+      const batchSize = 3;
+      for (let i = 0; i < people.length; i += batchSize) {
+        const batch = people.slice(i, i + batchSize);
+        
+        await Promise.all(
+          batch.map(async (person) => {
+            try {
+              // Check individual cache
+              if (!forceRefresh) {
+                const cached = await getCachedPersonData(person.slug);
+                if (cached && 'signalScore' in cached) {
+                  results.set(person.slug, cached);
+                  return;
+                }
+              }
 
-      // Small delay between batches to avoid rate limits
-      if (i + batchSize < people.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+              const personName = person.slug
+                .split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+
+              try {
+                const result = await scoreCalculator.calculateScores(personName, person.slug);
+                
+                // Get historical data for trend calculation
+                const historical7d = await getHistoricalData(person.slug, 7);
+                
+                // Calculate 7-day movement
+                const movement7d = historical7d 
+                  ? calculateMovement(result.breakdown, historical7d.scores)
+                  : null;
+
+                // Calculate signal score
+                const signalScore = calculateSignalScore(
+                  {
+                    approval: result.breakdown.approval.score,
+                    trust: result.breakdown.trust.score,
+                    impact: result.breakdown.impact.score,
+                    controversy: result.breakdown.controversy.score,
+                  },
+                  result.confidence,
+                  movement7d || undefined
+                );
+
+                // Add calculated fields
+                const enrichedResult = {
+                  ...result,
+                  signalScore,
+                  movement7d,
+                };
+
+                results.set(person.slug, enrichedResult);
+                
+                // Store historical snapshot
+                await storeHistoricalSnapshot(person.slug, result);
+                
+                // Cache individual result
+                await cachePersonData(person.slug, enrichedResult);
+              } catch (calculationError) {
+                console.error(`❌ Calculation failed for ${person.slug}, attempting fallback...`, calculationError);
+                
+                // Try to get cached data as fallback
+                const cachedData = await getCachedPersonData(person.slug);
+                if (cachedData && 'signalScore' in cachedData) {
+                  console.log(`✅ Using cached data as fallback for ${person.slug}`);
+                  results.set(person.slug, cachedData);
+                } else {
+                  console.error(`❌ No cached data available for ${person.slug}`);
+                  errors.push(person.slug);
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing ${person.slug}:`, error);
+              errors.push(person.slug);
+            }
+          })
+        );
+
+        // Small delay between batches to avoid rate limits
+        if (i + batchSize < people.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
     }
 

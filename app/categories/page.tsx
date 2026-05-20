@@ -4,28 +4,59 @@ import { people } from "../../data/people";
 
 const categories = [
   {
-    name: "Political Leaders",
-    description: "Presidents, prime ministers, and heads of state",
-    icon: "🏛️",
-    filter: (role: string) => role.toLowerCase().includes("president") || role.toLowerCase().includes("prime minister"),
+    name: "Technology & AI",
+    description: "Tech CEOs, AI researchers, and innovation leaders shaping the future",
+    icon: "🤖",
+    filter: (role: string) => 
+      role.toLowerCase().includes("tech") || 
+      role.toLowerCase().includes("ai") ||
+      role.toLowerCase().includes("researcher"),
+  },
+  {
+    name: "Politics & Geopolitics",
+    description: "Presidents, prime ministers, and world leaders",
+    icon: "🌍",
+    filter: (role: string) => 
+      role.toLowerCase().includes("president") || 
+      role.toLowerCase().includes("prime minister") ||
+      role.toLowerCase().includes("crown prince") ||
+      role.toLowerCase().includes("political"),
+  },
+  {
+    name: "Finance & Business",
+    description: "CEOs, investors, and business leaders driving markets",
+    icon: "💼",
+    filter: (role: string) => 
+      role.toLowerCase().includes("finance") ||
+      role.toLowerCase().includes("bank") ||
+      role.toLowerCase().includes("investor") ||
+      (role.toLowerCase().includes("business") && !role.toLowerCase().includes("tech")),
+  },
+  {
+    name: "Media & Culture",
+    description: "Musicians, creators, athletes, and cultural icons",
+    icon: "🎭",
+    filter: (role: string) => 
+      role.toLowerCase().includes("musician") ||
+      role.toLowerCase().includes("podcaster") ||
+      role.toLowerCase().includes("content creator") ||
+      role.toLowerCase().includes("athlete") ||
+      role.toLowerCase().includes("media mogul"),
+  },
+  {
+    name: "Science & Thought Leaders",
+    description: "Scientists, historians, and intellectual influencers",
+    icon: "🔬",
+    filter: (role: string) => 
+      role.toLowerCase().includes("scientist") ||
+      role.toLowerCase().includes("historian") ||
+      role.toLowerCase().includes("researcher"),
   },
   {
     name: "EU Leaders",
     description: "European Union officials and representatives",
     icon: "🇪🇺",
     filter: (role: string) => role.toLowerCase().includes("eu"),
-  },
-  {
-    name: "Business Figures",
-    description: "CEOs, entrepreneurs, and industry leaders",
-    icon: "💼",
-    filter: (role: string) => role.toLowerCase().includes("business"),
-  },
-  {
-    name: "Former Officials",
-    description: "Ex-presidents, former prime ministers, and retired leaders",
-    icon: "📜",
-    filter: (role: string) => role.toLowerCase().includes("former"),
   },
 ];
 

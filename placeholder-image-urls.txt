@@ -1,0 +1,2 @@
+﻿satya-nadella : https://ui-avatars.com/api/?name=SN&size=400&background=0D8ABC&color=fff&bold=true
+jennifer-doudna : https://ui-avatars.com/api/?name=JD&size=400&background=0D8ABC&color=fff&bold=true

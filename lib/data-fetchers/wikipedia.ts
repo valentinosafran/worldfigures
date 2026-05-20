@@ -76,6 +76,96 @@ export class WikipediaFetcher {
   }
 
   /**
+   * Batch fetch Wikipedia data for multiple people at once
+   * Uses Wikipedia's batch API to reduce number of requests
+   */
+  async batchGetPageData(pageNames: string[]): Promise<Map<string, WikipediaData | null>> {
+    const results = new Map<string, WikipediaData | null>();
+    
+    if (pageNames.length === 0) return results;
+
+    console.log(`📖 Batch fetching Wikipedia data for ${pageNames.length} people...`);
+    
+    try {
+      // Wikipedia API can handle multiple titles separated by |
+      // Split into chunks of 50 (API limit)
+      const chunkSize = 50;
+      const chunks: string[][] = [];
+      for (let i = 0; i < pageNames.length; i += chunkSize) {
+        chunks.push(pageNames.slice(i, i + chunkSize));
+      }
+
+      for (const chunk of chunks) {
+        const cleanNames = chunk.map(name => name.replace(/_/g, ' ').trim());
+        const titlesParam = cleanNames.join('|');
+
+        const response = await axios.get(this.baseUrl, {
+          params: {
+            action: 'query',
+            format: 'json',
+            titles: titlesParam,
+            prop: 'extracts|categories|revisions',
+            exintro: true,
+            explaintext: true,
+            rvprop: 'timestamp',
+            rvlimit: 1,
+          },
+          headers: {
+            'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
+          },
+          timeout: 15000,
+        });
+
+        const pages = response.data.query?.pages;
+        if (!pages) continue;
+
+        // Process each page in the batch response
+        for (const pageId of Object.keys(pages)) {
+          const page = pages[pageId];
+          
+          if (pageId === '-1' || !page || !page.title) continue;
+
+          const categories = page.categories?.map((cat: any) => cat.title.replace('Category:', '')) || [];
+          const lastEdited = page.revisions?.[0]?.timestamp || '';
+
+          // Store temporarily without pageviews
+          results.set(page.title, {
+            pageViews: 0, // Will be fetched in bulk
+            extract: page.extract || '',
+            categories,
+            lastEdited,
+          });
+        }
+      }
+
+      // Batch fetch page views (this is slower, but necessary)
+      // We'll fetch them in parallel with limited concurrency
+      const viewsPromises = Array.from(results.keys()).map(async (pageName) => {
+        const views = await this.getPageViews(pageName);
+        const existingData = results.get(pageName);
+        if (existingData) {
+          results.set(pageName, { ...existingData, pageViews: views });
+        }
+      });
+
+      // Process pageviews in batches of 5 to avoid overwhelming the API
+      const batchSize = 5;
+      for (let i = 0; i < viewsPromises.length; i += batchSize) {
+        await Promise.all(viewsPromises.slice(i, i + batchSize));
+        if (i + batchSize < viewsPromises.length) {
+          await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between batches
+        }
+      }
+
+      console.log(`✅ Wikipedia batch: Retrieved data for ${results.size} pages`);
+      return results;
+    } catch (error: any) {
+      console.error('❌ Error in batch Wikipedia fetch:', error.message);
+      return results;
+    }
+  }
+
+  /**
    * Get page view statistics (last 30 days)
    */
   async getPageViews(pageName: string): Promise<number> {

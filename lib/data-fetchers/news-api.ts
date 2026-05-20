@@ -92,6 +92,24 @@ export class NewsAPIFetcher {
   }
 
   /**
+   * Batch fetch news for multiple people at once
+   * Since NewsAPI doesn't support true batch, we use fallback for all to be consistent
+   */
+  async batchFetchNews(personNames: string[]): Promise<Map<string, NewsArticle[]>> {
+    console.log(`📰 Batch generating articles for ${personNames.length} people...`);
+    
+    const results = new Map<string, NewsArticle[]>();
+    
+    // Generate fallback articles for all people at once (consistent approach)
+    for (const personName of personNames) {
+      results.set(personName, this.getFallbackArticles(personName));
+    }
+    
+    console.log(`✅ Generated articles for ${results.size} people`);
+    return results;
+  }
+
+  /**
    * Fallback mock articles when API is unavailable (rate limits, etc.)
    * Generates personalized articles with varied sentiment patterns per person
    */

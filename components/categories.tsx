@@ -1,10 +1,10 @@
 const categories = [
-  "World Leaders",
-  "Politicians",
-  "Business Figures",
-  "Activists",
-  "Tech Leaders",
-  "Media Figures",
+  "Technology & AI",
+  "Politics & Geopolitics",
+  "Finance & Business",
+  "Media & Culture",
+  "Science & Thought Leaders",
+  "EU Leaders",
 ];
 
 export function Categories() {
