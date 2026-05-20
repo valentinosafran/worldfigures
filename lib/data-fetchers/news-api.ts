@@ -29,9 +29,12 @@ export class NewsAPIFetcher {
       const fromDate = new Date();
       fromDate.setDate(fromDate.getDate() - daysBack);
 
+      // Try with quotes for exact match first
+      const searchQuery = `"${personName}"`;
+
       const response = await axios.get(`${this.baseUrl}/everything`, {
         params: {
-          q: personName,
+          q: searchQuery,
           from: fromDate.toISOString().split('T')[0],
           sortBy: 'relevancy',
           pageSize: API_CONFIG.newsApi.maxResults,
@@ -55,7 +58,7 @@ export class NewsAPIFetcher {
           ),
         }));
         
-        console.log(`✅ NewsAPI: Found ${articles.length} articles`);
+        console.log(`✅ NewsAPI: Found ${articles.length} articles for "${searchQuery}"`);
         return articles;
       }
 

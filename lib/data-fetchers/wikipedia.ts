@@ -155,47 +155,106 @@ export class WikipediaFetcher {
   }
 
   /**
-   * Search for a person's Wikipedia page using REST API
+   * Generate name variations to try for search
+   */
+  private generateNameVariations(personName: string): string[] {
+    const variations: string[] = [personName]; // Start with full name
+    
+    const parts = personName.split(' ').filter(p => p.length > 0);
+    
+    if (parts.length >= 2) {
+      // Try last name only
+      variations.push(parts[parts.length - 1]);
+      
+      // Try first + last (skip middle names)
+      if (parts.length >= 3) {
+        variations.push(`${parts[0]} ${parts[parts.length - 1]}`);
+      }
+      
+      // Try removing common prefixes/suffixes
+      const cleaned = personName
+        .replace(/\b(Jr\.|Sr\.|III|II|Dr\.|President|Prime Minister|Chancellor)\b/gi, '')
+        .trim();
+      if (cleaned !== personName) {
+        variations.push(cleaned);
+      }
+    }
+    
+    return [...new Set(variations)]; // Remove duplicates
+  }
+
+  /**
+   * Verify if a Wikipedia page is about the right person
+   */
+  private verifyPersonMatch(page: any, searchName: string): boolean {
+    const title = page.title?.toLowerCase() || '';
+    const excerpt = page.excerpt?.toLowerCase() || '';
+    const description = page.description?.toLowerCase() || '';
+    
+    // Check if title contains the search name or vice versa
+    const nameParts = searchName.toLowerCase().split(' ');
+    const hasNamePart = nameParts.some(part => 
+      part.length > 2 && (title.includes(part) || excerpt.includes(part) || description.includes(part))
+    );
+    
+    return hasNamePart;
+  }
+
+  /**
+   * Search for a person's Wikipedia page using REST API with fallback variations
    */
   async searchPage(personName: string): Promise<string | null> {
     // Convert underscores to spaces and clean the name
     const cleanName = personName.replace(/_/g, ' ').trim();
-    console.log(`🔍 Searching Wikipedia REST API for "${cleanName}"...`);
+    const variations = this.generateNameVariations(cleanName);
     
-    try {
-      const response = await axios.get(`${this.restApiUrl}/search/page`, {
-        params: {
-          q: cleanName,
-          limit: 5,
-        },
-        headers: {
-          'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
-          'Api-User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
-        },
-        timeout: 10000,
-      });
-
-      const pages = response.data.pages;
-      if (pages && pages.length > 0) {
-        console.log(`✅ Wikipedia REST search: Found ${pages.length} results`);
-        pages.forEach((page: any, i: number) => {
-          console.log(`  ${i + 1}. "${page.title}" (key: ${page.key})`);
+    console.log(`🔍 Searching Wikipedia for "${cleanName}"...`);
+    console.log(`   Trying variations: ${variations.join(', ')}`);
+    
+    // Try each variation
+    for (const variation of variations) {
+      try {
+        const response = await axios.get(`${this.restApiUrl}/search/page`, {
+          params: {
+            q: variation,
+            limit: 10, // Get more results to find best match
+          },
+          headers: {
+            'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
+            'Api-User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
+          },
+          timeout: 10000,
         });
-        
-        // Return the top result's title
-        return pages[0].title;
-      }
 
-      console.warn(`⚠️ Wikipedia search: No results for "${cleanName}"`);
-      return null;
-    } catch (error: any) {
-      console.error('❌ Error searching Wikipedia:');
-      console.error('  Message:', error.message);
-      console.error('  Status:', error.response?.status);
-      console.error('  Data:', JSON.stringify(error.response?.data));
-      console.error('  URL:', error.config?.url);
-      return null;
+        const pages = response.data.pages;
+        if (pages && pages.length > 0) {
+          console.log(`✅ Wikipedia search for "${variation}": Found ${pages.length} results`);
+          
+          // Find the best match
+          for (const page of pages) {
+            console.log(`   - "${page.title}" (${page.description || 'no description'})`);
+            
+            // Check if this is likely the right person
+            if (this.verifyPersonMatch(page, cleanName)) {
+              console.log(`   ✓ Selected: "${page.title}"`);
+              return page.title;
+            }
+          }
+          
+          // If no verified match, use first result from exact name search
+          if (variation === cleanName && pages.length > 0) {
+            console.log(`   ⚠ Using top result: "${pages[0].title}"`);
+            return pages[0].title;
+          }
+        }
+      } catch (error: any) {
+        console.error(`❌ Error searching for "${variation}":`, error.message);
+        continue; // Try next variation
+      }
     }
+
+    console.warn(`⚠️ Wikipedia: No results found for any variation of "${cleanName}"`);
+    return null;
   }
 
 }
