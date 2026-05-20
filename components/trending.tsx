@@ -1,5 +1,6 @@
-import { getOpinionClass, people } from "../data/people";
+import { people } from "../data/people";
 import { fetchMultiplePeopleData } from "../lib/api-client";
+import { calculateLabel, getOpinionClass } from "../lib/label-calculator";
 
 export async function Trending() {
   // Fetch real-time data for all people
@@ -8,14 +9,17 @@ export async function Trending() {
   // Merge static profiles with API data
   const enrichedPeople = people.map(person => {
     const apiData = apiDataMap.get(person.slug);
+    const scores = apiData ? {
+      approval: apiData.breakdown.approval.score,
+      trust: apiData.breakdown.trust.score,
+      impact: apiData.breakdown.impact.score,
+      controversy: apiData.breakdown.controversy.score,
+    } : person.scores;
+    
     return {
       ...person,
-      scores: apiData ? {
-        approval: apiData.breakdown.approval.score,
-        trust: apiData.breakdown.trust.score,
-        impact: apiData.breakdown.impact.score,
-        controversy: apiData.breakdown.controversy.score,
-      } : person.scores,
+      scores,
+      label: calculateLabel(scores),
       hasLiveData: !!apiData,
     };
   });

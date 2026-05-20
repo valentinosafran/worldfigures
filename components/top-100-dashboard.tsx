@@ -1,5 +1,6 @@
-import { getOpinionClass, people, type PersonProfile } from "../data/people";
+import { people, type PersonProfile } from "../data/people";
 import { fetchMultiplePeopleData } from "../lib/api-client";
+import { calculateLabel, getOpinionClass } from "../lib/label-calculator";
 
 function formatDelta(value: number) {
   if (value > 0) return `+${value}`;
@@ -52,10 +53,12 @@ export async function Top100Dashboard() {
     } : person.scores;
     
     const sourceConfidence = apiData ? apiData.confidence : person.sourceConfidence;
+    const label = calculateLabel(scores);
     
     return {
       ...person,
       scores,
+      label,
       sourceConfidence,
       signalScore: getSignalScore(scores, sourceConfidence, person.trend7d, person.trend30d),
       pressureScore: getPressureScore(scores, person.trend7d),

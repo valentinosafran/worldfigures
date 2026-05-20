@@ -1,11 +1,11 @@
 import { Footer } from "../../../components/footer";
 import { Navbar } from "../../../components/navbar";
 import {
-  getOpinionClass,
   getPersonBySlug,
   people,
 } from "../../../data/people";
 import { fetchPersonData, formatLastUpdated } from "../../../lib/api-client";
+import { calculateLabel, getOpinionClass } from "../../../lib/label-calculator";
 
 // Force dynamic rendering - no static generation
 export const dynamic = 'force-dynamic';
@@ -82,6 +82,9 @@ export default async function PersonProfilePage({
   const confidence = apiData ? apiData.confidence : person.sourceConfidence;
   const lastUpdated = apiData ? formatLastUpdated(apiData.lastUpdated) : person.lastUpdated;
   const isLiveData = !!apiData;
+  
+  // Calculate dynamic label based on live scores
+  const label = calculateLabel(scores);
 
   return (
     <main>
@@ -97,8 +100,8 @@ export default async function PersonProfilePage({
               <img className="profileHeroAvatar" src={person.image} alt={person.name} />
               <div>
                 <h1 className="profileHeroTitle">{person.name}</h1>
-                <p className="profileHeroMeta">
-                  {person.role} · {person.region}
+                <p className="profileHeroMeta">label)}`}>
+                  {role} · {person.region}
                 </p>
                 <span className={`pill opinionTag ${getOpinionClass(person.label)}`}>
                   {person.label}

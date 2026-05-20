@@ -11,6 +11,7 @@ import { CTA } from "../components/cta";
 import { Footer } from "../components/footer";
 import { fetchMultiplePeopleData } from "../lib/api-client";
 import { people } from "../data/people";
+import { calculateLabel } from "../lib/label-calculator";
 
 // Force dynamic rendering - no static generation
 export const dynamic = 'force-dynamic';
@@ -37,14 +38,17 @@ export default async function HomePage() {
       totalControversy += apiData.breakdown.controversy.score;
       count++;
 
+      const scores = {
+        approval: apiData.breakdown.approval.score,
+        trust: apiData.breakdown.trust.score,
+        impact: apiData.breakdown.impact.score,
+        controversy: apiData.breakdown.controversy.score,
+      };
+
       return {
         ...person,
-        scores: {
-          approval: apiData.breakdown.approval.score,
-          trust: apiData.breakdown.trust.score,
-          impact: apiData.breakdown.impact.score,
-          controversy: apiData.breakdown.controversy.score,
-        },
+        scores,
+        label: calculateLabel(scores),
       };
     }
     
