@@ -38,7 +38,7 @@ export async function Trending() {
         </div>
 
         <div className="cardGrid four profileCards">
-          {enrichedPeople.map((person) => (
+          {enrichedPeople.slice(0, 8).map((person) => (
             <article className="profileCard" key={person.name}>
               <img className="avatar" src={person.image} alt={person.name} />
               <h3>{person.name}</h3>
