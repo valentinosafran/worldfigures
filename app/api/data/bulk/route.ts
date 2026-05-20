@@ -59,44 +59,58 @@ export async function GET(request: NextRequest) {
               .map(word => word.charAt(0).toUpperCase() + word.slice(1))
               .join(' ');
 
-            const result = await scoreCalculator.calculateScores(personName, person.slug);
-            
-            // Get historical data for trend calculation
-            const historical7d = await getHistoricalData(person.slug, 7);
-            
-            // Calculate 7-day movement
-            const movement7d = historical7d 
-              ? calculateMovement(result.breakdown, historical7d.scores)
-              : null;
+            try {
+              const result = await scoreCalculator.calculateScores(personName, person.slug);
+              
+              // Get historical data for trend calculation
+              const historical7d = await getHistoricalData(person.slug, 7);
+              
+              // Calculate 7-day movement
+              const movement7d = historical7d 
+                ? calculateMovement(result.breakdown, historical7d.scores)
+                : null;
 
-            // Calculate signal score
-            const signalScore = calculateSignalScore(
-              {
-                approval: result.breakdown.approval.score,
-                trust: result.breakdown.trust.score,
-                impact: result.breakdown.impact.score,
-                controversy: result.breakdown.controversy.score,
-              },
-              result.confidence,
-              movement7d || undefined
-            );
+              // Calculate signal score
+              const signalScore = calculateSignalScore(
+                {
+                  approval: result.breakdown.approval.score,
+                  trust: result.breakdown.trust.score,
+                  impact: result.breakdown.impact.score,
+                  controversy: result.breakdown.controversy.score,
+                },
+                result.confidence,
+                movement7d || undefined
+              );
 
-            // Add calculated fields
-            const enrichedResult = {
-              ...result,
-              signalScore,
-              movement7d,
-            };
+              // Add calculated fields
+              const enrichedResult = {
+                ...result,
+                signalScore,
+                movement7d,
+              };
 
-            results.set(person.slug, enrichedResult);
-            
-            // Store historical snapshot
-            await storeHistoricalSnapshot(person.slug, result);
-            
-            // Cache individual result
-            await cachePersonData(person.slug, enrichedResult);
+              results.set(person.slug, enrichedResult);
+              
+              // Store historical snapshot
+              await storeHistoricalSnapshot(person.slug, result);
+              
+              // Cache individual result
+              await cachePersonData(person.slug, enrichedResult);
+            } catch (calculationError) {
+              console.error(`❌ Calculation failed for ${person.slug}, attempting fallback...`, calculationError);
+              
+              // Try to get cached data as fallback
+              const cachedData = await getCachedPersonData(person.slug);
+              if (cachedData && 'signalScore' in cachedData) {
+                console.log(`✅ Using cached data as fallback for ${person.slug}`);
+                results.set(person.slug, cachedData);
+              } else {
+                console.error(`❌ No cached data available for ${person.slug}`);
+                errors.push(person.slug);
+              }
+            }
           } catch (error) {
-            console.error(`Error calculating scores for ${person.slug}:`, error);
+            console.error(`Error processing ${person.slug}:`, error);
             errors.push(person.slug);
           }
         })

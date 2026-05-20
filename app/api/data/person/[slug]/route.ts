@@ -38,46 +38,67 @@ export async function GET(
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
 
-    // Calculate scores
-    const result = await scoreCalculator.calculateScores(personName, slug);
+    // Calculate scores with fallback to cache on failure
+    let result;
+    let enrichedResult;
+    let usedFallback = false;
 
-    // Get historical data for trend calculation
-    const historical7d = await getHistoricalData(slug, 7);
-    
-    // Calculate 7-day movement
-    const movement7d = historical7d 
-      ? calculateMovement(result.breakdown, historical7d.scores)
-      : null;
+    try {
+      result = await scoreCalculator.calculateScores(personName, slug);
 
-    // Calculate signal score
-    const signalScore = calculateSignalScore(
-      {
-        approval: result.breakdown.approval.score,
-        trust: result.breakdown.trust.score,
-        impact: result.breakdown.impact.score,
-        controversy: result.breakdown.controversy.score,
-      },
-      result.confidence,
-      movement7d || undefined
-    );
+      // Get historical data for trend calculation
+      const historical7d = await getHistoricalData(slug, 7);
+      
+      // Calculate 7-day movement
+      const movement7d = historical7d 
+        ? calculateMovement(result.breakdown, historical7d.scores)
+        : null;
 
-    // Add calculated fields to result
-    const enrichedResult = {
-      ...result,
-      signalScore,
-      movement7d,
-    };
+      // Calculate signal score
+      const signalScore = calculateSignalScore(
+        {
+          approval: result.breakdown.approval.score,
+          trust: result.breakdown.trust.score,
+          impact: result.breakdown.impact.score,
+          controversy: result.breakdown.controversy.score,
+        },
+        result.confidence,
+        movement7d || undefined
+      );
 
-    // Store historical snapshot for future trend calculations
-    await storeHistoricalSnapshot(slug, result);
+      // Add calculated fields to result
+      enrichedResult = {
+        ...result,
+        signalScore,
+        movement7d,
+      };
 
-    // Cache the enriched result
-    await cachePersonData(slug, enrichedResult);
+      // Store historical snapshot for future trend calculations
+      await storeHistoricalSnapshot(slug, result);
+
+      // Cache the enriched result
+      await cachePersonData(slug, enrichedResult);
+    } catch (calculationError) {
+      console.error(`❌ Calculation failed for ${slug}, attempting fallback to cache...`, calculationError);
+      
+      // Try to get cached data as fallback
+      const cachedData = await getCachedPersonData(slug);
+      if (cachedData) {
+        console.log(`✅ Using cached data as fallback for ${slug}`);
+        enrichedResult = cachedData;
+        usedFallback = true;
+      } else {
+        // No cache available, re-throw the error
+        console.error(`❌ No cached data available for ${slug}`);
+        throw calculationError;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       data: enrichedResult,
-      cached: false,
+      cached: usedFallback,
+      stale: usedFallback, // Indicate this is fallback data
     });
   } catch (error) {
     console.error('Error calculating scores:', error);
