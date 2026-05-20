@@ -545,7 +545,7 @@ p {
 .dashboardStats,
 .dashboardHighlights {
   display: grid;
-  gap: 6px;
+  gap: 0;
   margin-bottom: 8px;
 }
 
@@ -2089,7 +2089,7 @@ textarea.formInput {
 
 .dashboardHighlights {
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  gap: 0;
 }
 
 .dashboardStatCard strong {
@@ -2447,7 +2447,7 @@ progress {
   .dashboardStats,
   .dashboardHighlights {
     grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
+    gap: 0;
   }
 
   .dashboardBoardHeader {
@@ -2566,7 +2566,7 @@ progress {
   .dashboardStats,
   .dashboardHighlights {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 0;
   }
 
   .dashboardStatCard {
