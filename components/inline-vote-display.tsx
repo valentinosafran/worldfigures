@@ -40,6 +40,7 @@ export function InlineVoteDisplay({ slug }: InlineVoteDisplayProps) {
 
   const isPositive = netVotes > 0;
   const displayValue = isPositive ? `+${netVotes}` : netVotes;
+  const arrow = isPositive ? '▲' : '▼';
 
   return (
     <span 
@@ -57,7 +58,7 @@ export function InlineVoteDisplay({ slug }: InlineVoteDisplayProps) {
       }}
       title="Community vote score"
     >
-      {displayValue} ▲
+      {displayValue} {arrow}
     </span>
   );
 }
