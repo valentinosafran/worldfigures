@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scoreCalculator } from '../../../../lib/score-calculator';
 import { people } from '../../../../data/people';
-import { getCachedPersonData, cachePersonData, getAllCachedPeopleData, cacheAllPeopleData } from '../../../../lib/redis';
+import { getCachedPersonData, cachePersonData, getAllCachedPeopleData, cacheAllPeopleData, getHistoricalData, storeHistoricalSnapshot } from '../../../../lib/redis';
+import { calculateSignalScore, calculateMovement } from '../../../../lib/signal-calculator';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -53,10 +54,41 @@ export async function GET(request: NextRequest) {
               .join(' ');
 
             const result = await scoreCalculator.calculateScores(personName, person.slug);
-            results.set(person.slug, result);
+            
+            // Get historical data for trend calculation
+            const historical7d = await getHistoricalData(person.slug, 7);
+            
+            // Calculate 7-day movement
+            const movement7d = historical7d 
+              ? calculateMovement(result.breakdown, historical7d.scores)
+              : null;
+
+            // Calculate signal score
+            const signalScore = calculateSignalScore(
+              {
+                approval: result.breakdown.approval.score,
+                trust: result.breakdown.trust.score,
+                impact: result.breakdown.impact.score,
+                controversy: result.breakdown.controversy.score,
+              },
+              result.confidence,
+              movement7d || undefined
+            );
+
+            // Add calculated fields
+            const enrichedResult = {
+              ...result,
+              signalScore,
+              movement7d,
+            };
+
+            results.set(person.slug, enrichedResult);
+            
+            // Store historical snapshot
+            await storeHistoricalSnapshot(person.slug, result);
             
             // Cache individual result
-            await cachePersonData(person.slug, result);
+            await cachePersonData(person.slug, enrichedResult);
           } catch (error) {
             console.error(`Error calculating scores for ${person.slug}:`, error);
             errors.push(person.slug);

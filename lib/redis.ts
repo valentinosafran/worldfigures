@@ -29,6 +29,7 @@ export function getRedisClient(): Redis | null {
  */
 export const CacheKeys = {
   personData: (slug: string) => `person:${slug}`,
+  personHistory: (slug: string) => `history:${slug}`,
   allPeople: () => 'people:all',
   lastRefresh: () => 'meta:last-refresh',
 };
@@ -38,6 +39,7 @@ export const CacheKeys = {
  */
 export const CacheTTL = {
   personData: 60 * 60, // 1 hour
+  personHistory: 60 * 60 * 24 * 30, // 30 days
   allPeople: 60 * 30, // 30 minutes
   lastRefresh: 60 * 60 * 24, // 24 hours
 };
@@ -139,5 +141,72 @@ export async function invalidateAllCaches(): Promise<void> {
     console.log('🗑️  Invalidated all people cache');
   } catch (error) {
     console.error('Redis delete error:', error);
+  }
+}
+
+/**
+ * Store historical snapshot of person data
+ */
+export async function storeHistoricalSnapshot(slug: string, data: any): Promise<void> {
+  const client = getRedisClient();
+  if (!client) return;
+
+  try {
+    const timestamp = Date.now();
+    const snapshot = {
+      timestamp,
+      date: new Date().toISOString(),
+      scores: data.breakdown,
+      confidence: data.confidence,
+    };
+
+    // Store in a sorted set with timestamp as score
+    await client.zadd(CacheKeys.personHistory(slug), {
+      score: timestamp,
+      member: JSON.stringify(snapshot),
+    });
+
+    // Keep only last 90 days of history (cleanup old data)
+    const ninetyDaysAgo = timestamp - (90 * 24 * 60 * 60 * 1000);
+    await client.zremrangebyscore(CacheKeys.personHistory(slug), '-inf', ninetyDaysAgo);
+
+    console.log(`📊 Stored historical snapshot for ${slug}`);
+  } catch (error) {
+    console.error('Redis history store error:', error);
+  }
+}
+
+/**
+ * Get historical data for calculating trends
+ */
+export async function getHistoricalData(slug: string, daysAgo: number): Promise<any | null> {
+  const client = getRedisClient();
+  if (!client) return null;
+
+  try {
+    const targetTime = Date.now() - (daysAgo * 24 * 60 * 60 * 1000);
+    
+    // Get snapshots within ±12 hours of target time
+    const rangeStart = targetTime - (12 * 60 * 60 * 1000);
+    const rangeEnd = targetTime + (12 * 60 * 60 * 1000);
+    
+    const snapshots = await client.zrangebyscore(
+      CacheKeys.personHistory(slug),
+      rangeStart,
+      rangeEnd
+    );
+
+    if (!snapshots || snapshots.length === 0) {
+      return null;
+    }
+
+    // Return the closest snapshot
+    const parsed = snapshots.map((s: string) => JSON.parse(s));
+    parsed.sort((a, b) => Math.abs(a.timestamp - targetTime) - Math.abs(b.timestamp - targetTime));
+    
+    return parsed[0];
+  } catch (error) {
+    console.error('Redis history fetch error:', error);
+    return null;
   }
 }

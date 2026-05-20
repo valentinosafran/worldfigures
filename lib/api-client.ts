@@ -32,6 +32,13 @@ export interface APIPersonData {
   };
   confidence: number;
   lastUpdated: string;
+  signalScore: number;
+  movement7d?: {
+    approval: number;
+    trust: number;
+    impact: number;
+    controversy: number;
+  } | null;
 }
 
 export interface APIResponse {

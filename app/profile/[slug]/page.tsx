@@ -82,9 +82,19 @@ export default async function PersonProfilePage({
   const confidence = apiData ? apiData.confidence : person.sourceConfidence;
   const lastUpdated = apiData ? formatLastUpdated(apiData.lastUpdated) : person.lastUpdated;
   const isLiveData = !!apiData;
+  const signalScore = apiData?.signalScore || 0;
+  const movement7d = apiData?.movement7d || null;
   
   // Calculate dynamic label based on live scores
   const label = calculateLabel(scores);
+
+  // Format 7-day movement for display
+  const formatMovement = (value: number | undefined | null) => {
+    if (value === null || value === undefined) return '-';
+    if (value > 0) return `+${value}`;
+    if (value < 0) return `${value}`;
+    return '0';
+  };
 
   return (
     <main>
@@ -123,16 +133,43 @@ export default async function PersonProfilePage({
                 </strong>
               </div>
               <div className="miniMetricCard">
-                <span>30-day movement</span>
-                <strong className={person.trend30d >= 0 ? "trend-up" : "trend-down"}>
-                  {person.trend30d >= 0 ? `+${person.trend30d}` : person.trend30d}
-                </strong>
+                <span>Signal score</span>
+                <strong className="trend-up">{signalScore}</strong>
               </div>
               <div className="miniMetricCard">
                 <span>Updated</span>
                 <strong>{lastUpdated}</strong>
               </div>
             </div>
+
+            {movement7d && (
+              <div className="profileMetaRow" style={{ marginTop: '16px' }}>
+                <div className="miniMetricCard">
+                  <span>7d Approval</span>
+                  <strong className={movement7d.approval >= 0 ? "trend-up" : "trend-down"}>
+                    {formatMovement(movement7d.approval)}
+                  </strong>
+                </div>
+                <div className="miniMetricCard">
+                  <span>7d Trust</span>
+                  <strong className={movement7d.trust >= 0 ? "trend-up" : "trend-down"}>
+                    {formatMovement(movement7d.trust)}
+                  </strong>
+                </div>
+                <div className="miniMetricCard">
+                  <span>7d Impact</span>
+                  <strong className={movement7d.impact >= 0 ? "trend-up" : "trend-down"}>
+                    {formatMovement(movement7d.impact)}
+                  </strong>
+                </div>
+                <div className="miniMetricCard">
+                  <span>7d Controversy</span>
+                  <strong className={movement7d.controversy >= 0 ? "trend-up" : "trend-down"}>
+                    {formatMovement(movement7d.controversy)}
+                  </strong>
+                </div>
+              </div>
+            )}
 
             <p className="scoreLegend">
               Score interval is 0-100: 0-39 weak/low, 40-59 mixed, 60-79 strong, 80-100 very strong.

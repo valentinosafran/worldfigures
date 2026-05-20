@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scoreCalculator } from '../../../../../lib/score-calculator';
-import { getCachedPersonData, cachePersonData } from '../../../../../lib/redis';
+import { getCachedPersonData, cachePersonData, getHistoricalData, storeHistoricalSnapshot } from '../../../../../lib/redis';
+import { calculateSignalScore, calculateMovement } from '../../../../../lib/signal-calculator';
 
 // Force dynamic rendering - no static generation
 export const dynamic = 'force-dynamic';
@@ -40,12 +41,42 @@ export async function GET(
     // Calculate scores
     const result = await scoreCalculator.calculateScores(personName, slug);
 
-    // Cache the result
-    await cachePersonData(slug, result);
+    // Get historical data for trend calculation
+    const historical7d = await getHistoricalData(slug, 7);
+    
+    // Calculate 7-day movement
+    const movement7d = historical7d 
+      ? calculateMovement(result.breakdown, historical7d.scores)
+      : null;
+
+    // Calculate signal score
+    const signalScore = calculateSignalScore(
+      {
+        approval: result.breakdown.approval.score,
+        trust: result.breakdown.trust.score,
+        impact: result.breakdown.impact.score,
+        controversy: result.breakdown.controversy.score,
+      },
+      result.confidence,
+      movement7d || undefined
+    );
+
+    // Add calculated fields to result
+    const enrichedResult = {
+      ...result,
+      signalScore,
+      movement7d,
+    };
+
+    // Store historical snapshot for future trend calculations
+    await storeHistoricalSnapshot(slug, result);
+
+    // Cache the enriched result
+    await cachePersonData(slug, enrichedResult);
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: enrichedResult,
       cached: false,
     });
   } catch (error) {
