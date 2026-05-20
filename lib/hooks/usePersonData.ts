@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AggregatedData } from '../types';
+import { AggregatedData } from '../../types';
 
 export function usePersonData(slug: string) {
   const [data, setData] = useState<AggregatedData | null>(null);
