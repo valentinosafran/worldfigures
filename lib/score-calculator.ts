@@ -337,60 +337,153 @@ export class ScoreCalculator {
   }
 
   private estimateInstitutionalTrust(wikiData: any, articles: any[]): number {
-    // Base on Wikipedia presence and neutral article count
-    const wikiScore = wikiData ? 60 : 30;
-    const neutralArticles = articles.filter(a => Math.abs(a.sentiment || 0) < 0.3).length;
-    const neutralScore = Math.min(40, (neutralArticles / articles.length) * 100);
-    return Math.round(wikiScore * 0.6 + neutralScore * 0.4);
+    if (articles.length === 0) return 40;
+    
+    // Look for trust-related keywords in coverage
+    const trustKeywords = [
+      'reliable', 'trustworthy', 'credible', 'honest', 'integrity',
+      'transparent', 'accountable', 'dependable', 'authentic', 'legitimate',
+      'respectable', 'ethical', 'principled', 'honorable'
+    ];
+    
+    const distrustKeywords = [
+      'unreliable', 'untrustworthy', 'dishonest', 'deceptive', 'misleading',
+      'corrupt', 'scandal', 'fraud', 'lie', 'lied', 'lying', 'false claims',
+      'misinformation', 'disinformation', 'unethical', 'questionable',
+      'suspicious', 'dubious', 'shady', 'illegitimate'
+    ];
+    
+    let trustCount = 0;
+    let distrustCount = 0;
+    let sentimentSum = 0;
+    
+    articles.forEach(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      if (trustKeywords.some(kw => text.includes(kw))) trustCount++;
+      if (distrustKeywords.some(kw => text.includes(kw))) distrustCount++;
+      sentimentSum += (a.sentiment || 0);
+    });
+    
+    // Base score on Wikipedia presence
+    const baseScore = wikiData ? 55 : 35;
+    
+    if (trustCount > 0 || distrustCount > 0) {
+      // We have keyword data
+      const trustDiff = trustCount - distrustCount;
+      const adjustment = (trustDiff / articles.length) * 120;
+      return Math.max(25, Math.min(90, Math.round(baseScore + adjustment)));
+    } else {
+      // No keywords - amplify sentiment differences
+      const avgSentiment = sentimentSum / articles.length;
+      const sentimentAdjustment = avgSentiment * 180;
+      return Math.max(25, Math.min(90, Math.round(baseScore + sentimentAdjustment)));
+    }
   }
 
   private estimateFactCheckScore(articles: any[]): number {
-    // Look for fact-check related keywords in articles
-    const factCheckKeywords = ['fact-check', 'verified', 'accurate', 'false', 'misleading'];
-    const factCheckArticles = articles.filter(a => 
-      factCheckKeywords.some(keyword => 
-        (a.title?.toLowerCase() || '').includes(keyword) ||
-        (a.description?.toLowerCase() || '').includes(keyword)
-      )
-    );
-
-    // If there are fact-check articles, analyze their sentiment
-    if (factCheckArticles.length > 0) {
-      const avgSentiment = factCheckArticles.reduce((sum, a) => sum + (a.sentiment || 0), 0) / factCheckArticles.length;
-      return Math.round(((avgSentiment + 1) / 2) * 100);
+    if (articles.length === 0) return 50;
+    
+    // Enhanced fact-check keywords
+    const truthfulKeywords = [
+      'fact-check', 'verified', 'accurate', 'true', 'confirmed', 'validated',
+      'evidence-based', 'substantiated', 'factual', 'proven', 'documented'
+    ];
+    
+    const falsehoodKeywords = [
+      'false', 'misleading', 'misinformation', 'disinformation', 'debunked',
+      'unverified', 'baseless', 'unfounded', 'fabricated', 'fake news',
+      'false claim', 'inaccurate', 'disputed', 'questionable claim'
+    ];
+    
+    let truthfulCount = 0;
+    let falsehoodCount = 0;
+    
+    articles.forEach(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      if (truthfulKeywords.some(kw => text.includes(kw))) truthfulCount++;
+      if (falsehoodKeywords.some(kw => text.includes(kw))) falsehoodCount++;
+    });
+    
+    // If no fact-check mentions, use positive vs negative sentiment as proxy
+    if (truthfulCount === 0 && falsehoodCount === 0) {
+      const positiveSentiment = articles.filter(a => (a.sentiment || 0) > 0.2).length;
+      const negativeSentiment = articles.filter(a => (a.sentiment || 0) < -0.2).length;
+      const sentimentRatio = (positiveSentiment - negativeSentiment) / articles.length;
+      return Math.max(30, Math.min(70, Math.round(50 + (sentimentRatio * 60))));
     }
-
-    // Default to neutral if no fact-check data
-    return 50;
+    
+    // Calculate based on truthful vs falsehood mentions
+    const ratio = (truthfulCount - falsehoodCount) / articles.length;
+    return Math.max(20, Math.min(90, Math.round(50 + (ratio * 150))));
   }
 
   private estimateExpertEvaluation(wikiData: any): number {
-    // Base on Wikipedia article quality indicators
-    if (!wikiData) return 40;
+    // More nuanced evaluation based on Wikipedia presence and quality
+    if (!wikiData) return 30; // No Wikipedia presence = lower expert recognition
 
     const categories = wikiData.categories || [];
-    const hasQualityIndicators = categories.some((cat: string) => 
-      cat.includes('Living people') || 
-      cat.includes('Politicians') ||
-      cat.includes('leaders')
-    );
-
-    return hasQualityIndicators ? 65 : 50;
+    
+    // High-status indicators
+    const prestigeIndicators = [
+      'Living people', 'Presidents', 'Prime Ministers', 'heads of state',
+      'world leaders', 'Nobel', 'award', 'Fellows', 'Members of',
+      'Leaders', 'Politicians', 'Statespeople'
+    ];
+    
+    // Count prestige indicators
+    const prestigeCount = categories.filter((cat: string) => 
+      prestigeIndicators.some(indicator => 
+        cat.toLowerCase().includes(indicator.toLowerCase())
+      )
+    ).length;
+    
+    // Scale based on number of prestige indicators
+    // 0 indicators = 40, 1 = 50, 2 = 60, 3 = 70, 4+ = 80
+    const baseScore = 40 + Math.min(40, prestigeCount * 10);
+    
+    return baseScore;
   }
 
   private estimateConsistency(articles: any[]): number {
     if (articles.length === 0) return 50;
 
-    // Measure sentiment consistency
+    // Look for consistency/flip-flop keywords
+    const consistencyKeywords = [
+      'consistent', 'steadfast', 'principled', 'unwavering', 'reliable',
+      'predictable', 'stable', 'steady', 'committed', 'dedicated'
+    ];
+    
+    const inconsistencyKeywords = [
+      'flip-flop', 'inconsistent', 'changed position', 'reversed',
+      'contradicted', 'contradictory', 'backtrack', 'u-turn',
+      'shifted stance', 'changed mind', 'wavering', 'unpredictable'
+    ];
+    
+    let consistentCount = 0;
+    let inconsistentCount = 0;
+    
+    articles.forEach(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      if (consistencyKeywords.some(kw => text.includes(kw))) consistentCount++;
+      if (inconsistencyKeywords.some(kw => text.includes(kw))) inconsistentCount++;
+    });
+    
+    // Also measure sentiment consistency (but give it less weight)
     const sentiments = articles.map(a => a.sentiment || 0);
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
-    
-    // Calculate how consistent sentiments are (low variance = high consistency)
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
     
-    // Low variance (< 0.2) = high consistency
-    const consistencyScore = Math.max(0, 100 - (variance * 250));
-    return Math.round(consistencyScore);
+    // Low variance = more consistent sentiment
+    const sentimentConsistency = Math.max(0, 100 - (variance * 200));
+    
+    // Keyword-based score (more decisive)
+    const keywordDiff = consistentCount - inconsistentCount;
+    const keywordScore = 50 + (keywordDiff / articles.length) * 150;
+    
+    // Combine: 70% keywords, 30% sentiment variance
+    const combined = (keywordScore * 0.7) + (sentimentConsistency * 0.3);
+    
+    return Math.max(40, Math.min(100, Math.round(combined)));
   }
 
   private estimateScandalFrequency(articles: any[]): number {

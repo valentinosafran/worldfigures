@@ -161,12 +161,78 @@ export class NewsAPIFetcher {
   }
 
   /**
-   * Calculate sentiment score (0-100 scale)
+   * Calculate sentiment score (0-100 scale) with enhanced approval detection
+   * Looks for explicit support/approval vs disapproval keywords + amplifies sentiment
    */
   getSentimentScore(articles: NewsArticle[]): number {
-    const avgSentiment = this.calculateAverageSentiment(articles);
-    // Convert from -1/1 scale to 0-100 scale
-    return Math.round(((avgSentiment + 1) / 2) * 100);
+    if (articles.length === 0) return 50;
+    
+    // Enhanced approval keywords
+    const strongApprovalKeywords = [
+      'praised', 'celebrated', 'beloved', 'admired', 'popular support',
+      'widely supported', 'endorsed', 'hailed', 'applauded', 'commended',
+      'triumph', 'success', 'achievement', 'acclaimed', 'cheered'
+    ];
+    
+    const moderateApprovalKeywords = [
+      'support', 'approve', 'welcomed', 'respected', 'trusted', 'liked',
+      'favor', 'backing', 'champion', 'positive reception', 'gains support'
+    ];
+    
+    const strongDisapprovalKeywords = [
+      'condemn', 'denounced', 'vilified', 'despised', 'hated', 'reviled',
+      'protest', 'outrage', 'fury', 'anger', 'backlash', 'uproar',
+      'deeply unpopular', 'widely criticized', 'mass opposition', 'rejected'
+    ];
+    
+    const moderateDisapprovalKeywords = [
+      'oppose', 'disapprove', 'reject', 'criticized', 'unpopular',
+      'disliked', 'questioned', 'doubt', 'skeptical', 'wary', 'distrust',
+      'concern', 'disappointment', 'frustration', 'growing opposition'
+    ];
+    
+    let approvalScore = 0;
+    let sentimentSum = 0;
+    let keywordHits = 0;
+    
+    articles.forEach(a => {
+      const text = `${a.title} ${a.description}`.toLowerCase();
+      const sentiment = a.sentiment || 0;
+      sentimentSum += sentiment;
+      
+      // Strong keywords worth more
+      if (strongApprovalKeywords.some(kw => text.includes(kw))) {
+        approvalScore += 4;
+        keywordHits++;
+      } else if (moderateApprovalKeywords.some(kw => text.includes(kw))) {
+        approvalScore += 2;
+        keywordHits++;
+      }
+      
+      if (strongDisapprovalKeywords.some(kw => text.includes(kw))) {
+        approvalScore -= 4;
+        keywordHits++;
+      } else if (moderateDisapprovalKeywords.some(kw => text.includes(kw))) {
+        approvalScore -= 2;
+        keywordHits++;
+      }
+    });
+    
+    // Calculate average sentiment (more weight if no keywords found)
+    const avgSentiment = sentimentSum / articles.length;
+    
+    if (keywordHits > 0) {
+      // We have keyword data - use it with sentiment as supporting factor
+      const keywordComponent = (approvalScore / articles.length) * 35;
+      const sentimentComponent = avgSentiment * 40;
+      const combined = 50 + keywordComponent + sentimentComponent;
+      return Math.max(20, Math.min(85, Math.round(combined)));
+    } else {
+      // No keywords - use ultra-aggressive sentiment scaling
+      // Amplify tiny differences: -0.12 to +0.12 sentiment → 20 to 80 range
+      const amplified = 50 + (avgSentiment * 250);
+      return Math.max(20, Math.min(80, Math.round(amplified)));
+    }
   }
 
   /**
