@@ -1,6 +1,7 @@
 import { people } from "../data/people";
 import { fetchMultiplePeopleData } from "../lib/api-client";
 import { calculateLabel, getOpinionClass } from "../lib/label-calculator";
+import { InlineVoteDisplay } from "./inline-vote-display";
 
 export async function Trending() {
   // Fetch real-time data for all people
@@ -44,6 +45,7 @@ export async function Trending() {
               <p className="muted">{person.role}</p>
               <div className={`pill opinionTag ${getOpinionClass(person.label)}`}>
                 {person.label}
+                <InlineVoteDisplay slug={person.slug} />
               </div>
               <a className="textLink" href={`/profile/${person.slug}`}>
                 View profile &rarr;

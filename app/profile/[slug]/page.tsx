@@ -1,6 +1,7 @@
 import { Footer } from "../../../components/footer";
 import { Navbar } from "../../../components/navbar";
 import { ProfileVoting } from "../../../components/profile-voting";
+import { InlineVoteDisplay } from "../../../components/inline-vote-display";
 import {
   getPersonBySlug,
   people,
@@ -123,6 +124,7 @@ export default async function PersonProfilePage({
                 </p>
                 <span className={`pill opinionTag ${getOpinionClass(label)}`}>
                   {label}
+                  <InlineVoteDisplay slug={resolvedParams.slug} />
                 </span>
               </div>
             </div>

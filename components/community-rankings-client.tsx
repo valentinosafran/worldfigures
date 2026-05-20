@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { people } from '../data/people';
 import { getOpinionClass } from '../lib/label-calculator';
+import { InlineVoteDisplay } from './inline-vote-display';
 
 interface ProfileVotes {
   slug: string;
@@ -194,6 +195,7 @@ export function CommunityRankingsClient() {
                       <small>{person.role}</small>
                       <span className={`dashboardInlineStatus ${getOpinionClass(person.label)}`}>
                         {person.label}
+                        <InlineVoteDisplay slug={person.slug} />
                       </span>
                     </span>
                   </span>

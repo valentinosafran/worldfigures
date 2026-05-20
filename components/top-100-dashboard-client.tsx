@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { people, type PersonProfile } from '../data/people';
 import { fetchMultiplePeopleData } from '../lib/api-client';
 import { calculateLabel, getOpinionClass } from '../lib/label-calculator';
+import { InlineVoteDisplay } from './inline-vote-display';
 
 function formatDelta(value: number) {
   if (value > 0) return `+${value}`;
@@ -379,6 +380,7 @@ export function Top100DashboardClient() {
                         <small>{person.role}</small>
                         <span className={`dashboardInlineStatus ${getOpinionClass(person.label)}`}>
                           {person.label}
+                          <InlineVoteDisplay slug={person.slug} />
                         </span>
                       </span>
                     </span>

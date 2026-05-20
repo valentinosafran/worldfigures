@@ -3629,3 +3629,23 @@ progress {
     margin-top: 8px;
   }
 }
+
+/* Inline Vote Display */
+.inlineVoteCount {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Make sure vote display fits well in labels */
+.opinionTag .inlineVoteCount,
+.dashboardInlineStatus .inlineVoteCount {
+  font-size: 0.9em;
+}
+
+/* Adjust for mobile */
+@media (max-width: 768px) {
+  .inlineVoteCount {
+    font-size: 0.8em;
+    padding: 1px 4px !important;
+  }
+}
