@@ -9,6 +9,7 @@ interface HeroProps {
     image: string;
     opinion: string;
     delta: number;
+    hasMovementData: boolean;
   }[];
 }
 
@@ -24,10 +25,18 @@ function getOpinionClass(label: string) {
   return "opinion-neutral";
 }
 
-function getDeltaClass(delta: number) {
+function getDeltaClass(delta: number, hasData: boolean) {
+  if (!hasData) return "change-flat";
   if (delta > 0) return "change-up";
   if (delta < 0) return "change-down";
   return "change-flat";
+}
+
+function formatDelta(delta: number, hasData: boolean) {
+  if (!hasData) return "—";
+  if (delta === 0) return "—";
+  if (delta > 0) return `+${delta}`;
+  return `${delta}`;
 }
 
 export function Hero({ benchmarkStats, trendingPeople }: HeroProps) {
@@ -98,8 +107,8 @@ export function Hero({ benchmarkStats, trendingPeople }: HeroProps) {
                       </p>
                     </div>
                   </div>
-                  <span className={`changeTag ${getDeltaClass(profile.delta)}`}>
-                    {profile.delta > 0 ? `+${profile.delta}` : `${profile.delta}`}
+                  <span className={`changeTag ${getDeltaClass(profile.delta, profile.hasMovementData)}`}>
+                    {formatDelta(profile.delta, profile.hasMovementData)}
                   </span>
                 </a>
               ))}

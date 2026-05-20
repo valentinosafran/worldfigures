@@ -45,14 +45,27 @@ export default async function HomePage() {
         controversy: apiData.breakdown.controversy.score,
       };
 
+      // Calculate signal movement from movement7d data
+      let signalMovement = 0;
+      if (apiData.movement7d) {
+        // Signal formula: Impact×0.65 + Controversy×0.30 + (Approval+Trust)×0.05
+        signalMovement = Math.round(
+          apiData.movement7d.impact * 0.65 +
+          apiData.movement7d.controversy * 0.30 +
+          (apiData.movement7d.approval + apiData.movement7d.trust) * 0.025
+        );
+      }
+
       return {
         ...person,
         scores,
         label: calculateLabel(scores),
+        movement: signalMovement,
+        hasMovementData: !!apiData.movement7d,
       };
     }
     
-    return person;
+    return { ...person, movement: 0, hasMovementData: false };
   });
 
   const benchmarkStats = count > 0 ? [
@@ -67,20 +80,25 @@ export default async function HomePage() {
     { label: "Controversy", value: 39 },
   ];
 
-  // Select trending people (highest impact + recent trend)
+  // Select trending people (highest signal score from API)
   const trendingPeople = [...enrichedPeople]
-    .sort((a, b) => {
-      const scoreA = a.scores.impact * 0.7 + Math.abs(a.trend7d) * 10;
-      const scoreB = b.scores.impact * 0.7 + Math.abs(b.trend7d) * 10;
-      return scoreB - scoreA;
+    .filter(person => apiDataMap.has(person.slug))
+    .map(person => {
+      const apiData = apiDataMap.get(person.slug)!;
+      return {
+        ...person,
+        signalScore: apiData.signalScore,
+      };
     })
+    .sort((a, b) => b.signalScore - a.signalScore)
     .slice(0, 3)
     .map(person => ({
       name: person.name,
       slug: person.slug,
       image: person.image,
       opinion: person.label,
-      delta: person.trend7d,
+      delta: person.movement,
+      hasMovementData: person.hasMovementData,
     }));
 
   return (
