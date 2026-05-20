@@ -178,12 +178,40 @@ export class NewsAPIFetcher {
 
   /**
    * Calculate negative coverage percentage
+   * Includes both sentiment-based and keyword-based detection
    */
   getNegativeCoverageScore(articles: NewsArticle[]): number {
     if (articles.length === 0) return 0;
 
-    const negativeArticles = articles.filter(a => (a.sentiment || 0) < -0.2);
-    return Math.round((negativeArticles.length / articles.length) * 100);
+    const controversyKeywords = [
+      // Legal/Scandal terms
+      'scandal', 'controversy', 'criticized', 'backlash', 'outrage',
+      'protest', 'investigation', 'accused', 'allegations', 'condemned',
+      'crisis', 'failed', 'disaster', 'fraud', 'corruption', 'illegal',
+      'impeachment', 'resign', 'attacked', 'disputed', 'conflict',
+      // Political controversy
+      'lawsuit', 'indictment', 'charges', 'trial', 'criminal', 'probe',
+      'scandal-hit', 'embattled', 'under fire', 'facing criticism',
+      'controversial statement', 'sparks outrage', 'draws criticism',
+      // Opposition/Criticism
+      'opponents', 'critics say', 'opposition', 'reject', 'denounce',
+      'slam', 'blast', 'hit out', 'lash out', 'rebuke', 'censure'
+    ];
+
+    const negativeArticles = articles.filter(a => {
+      const sentiment = a.sentiment || 0;
+      const text = `${a.title} ${a.description}`.toLowerCase();
+      
+      // Count if negative sentiment OR contains controversy keywords
+      const hasNegativeSentiment = sentiment < -0.05;  // More sensitive threshold
+      const hasControversyKeywords = controversyKeywords.some(kw => text.includes(kw));
+      
+      return hasNegativeSentiment || hasControversyKeywords;
+    });
+
+    // Be more aggressive: even 20% negative = high score
+    const percentage = negativeArticles.length / articles.length;
+    return Math.min(100, Math.round(percentage * 200));
   }
 }
 

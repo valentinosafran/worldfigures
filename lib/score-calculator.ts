@@ -261,46 +261,28 @@ export class ScoreCalculator {
     
     console.log(`    → Impact Score: ${impactScore}`);
 
-    // CONTROVERSY COMPONENTS - exclude Reddit if no data
+    // CONTROVERSY COMPONENTS - use estimated polarization instead of Reddit
     const negativeCoverage = newsAPIFetcher.getNegativeCoverageScore(newsArticles);
-    const polarization = hasRedditData ? redditFetcher.getPolarizationScore(redditPosts) : null;
+    const polarization = this.estimatePolarization(newsArticles); // Use news-based polarization
     const scandalFrequency = this.estimateScandalFrequency(newsArticles);
     const criticismIntensity = this.estimateCriticismIntensity(newsArticles, redditPosts);
     const disputeVolume = this.estimateDisputeVolume(newsArticles);
 
     console.log(`  Controversy components:`);
     console.log(`    Negative Coverage: ${negativeCoverage}`);
-    console.log(`    Polarization: ${hasRedditData ? polarization : 'N/A (excluded)'}`);
+    console.log(`    Polarization: ${polarization} (estimated from news)`);
     console.log(`    Scandal Frequency: ${scandalFrequency}`);
     console.log(`    Criticism Intensity: ${criticismIntensity}`);
     console.log(`    Dispute Volume: ${disputeVolume}`);
 
-    // Dynamic weight calculation for controversy
-    let controversyScore;
-    if (hasRedditData) {
-      controversyScore = Math.round(
-        negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
-        scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
-        polarization! * SCORING_WEIGHTS.controversy.polarization +
-        criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
-        disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
-      );
-    } else {
-      // Redistribute polarization's 25% to negative coverage (15%) and scandal (10%)
-      const adjustedWeights = {
-        negativeCoverage: 0.45,  // 30% + 15%
-        scandalFrequency: 0.35,  // 25% + 10%
-        criticismIntensity: 0.15,
-        disputeVolume: 0.05
-      };
-      controversyScore = Math.round(
-        negativeCoverage * adjustedWeights.negativeCoverage +
-        scandalFrequency * adjustedWeights.scandalFrequency +
-        criticismIntensity * adjustedWeights.criticismIntensity +
-        disputeVolume * adjustedWeights.disputeVolume
-      );
-      console.log(`    ⚠️ Reddit data missing - weights adjusted`);
-    }
+    // Use standard weights (no Reddit to exclude)
+    const controversyScore = Math.round(
+      negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
+      scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
+      polarization * SCORING_WEIGHTS.controversy.polarization +
+      criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
+      disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
+    );
     
     console.log(`    → Controversy Score: ${controversyScore}`);
     console.log('');
@@ -339,7 +321,7 @@ export class ScoreCalculator {
         components: {
           negativeCoverage,
           scandalFrequency,
-          polarization: polarization !== null ? polarization : 0,
+          polarization,
           criticismIntensity,
           disputeVolume,
         },
@@ -412,43 +394,110 @@ export class ScoreCalculator {
   }
 
   private estimateScandalFrequency(articles: any[]): number {
-    const scandalKeywords = ['scandal', 'controversy', 'investigation', 'accused', 'allegations', 'corrupt'];
+    if (articles.length === 0) return 0;
     
-    const scandalArticles = articles.filter(a =>
-      scandalKeywords.some(keyword =>
-        (a.title?.toLowerCase() || '').includes(keyword) ||
-        (a.description?.toLowerCase() || '').includes(keyword)
-      )
-    );
+    const scandalKeywords = [
+      'scandal', 'controversy', 'investigation', 'accused', 'allegations', 
+      'corrupt', 'fraud', 'impeachment', 'indictment', 'lawsuit', 'probe',
+      'criminal', 'unethical', 'misconduct', 'violation', 'breach',
+      'embezzlement', 'bribery', 'collusion', 'coverup', 'exposed'
+    ];
+    
+    const scandalArticles = articles.filter(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      return scandalKeywords.some(keyword => text.includes(keyword));
+    });
 
-    return Math.min(100, Math.round((scandalArticles.length / Math.max(1, articles.length)) * 200));
+    // More aggressive scaling: 10%+ scandal articles = high score
+    const percentage = (scandalArticles.length / articles.length);
+    return Math.min(100, Math.round(percentage * 400));
   }
 
   private estimateCriticismIntensity(articles: any[], posts: any[]): number {
-    const negativeSentiments = [
-      ...articles.map(a => a.sentiment || 0),
-      ...posts.map(p => p.sentiment || 0)
-    ].filter(s => s < -0.3);
-
-    const avgNegativeSentiment = negativeSentiments.length > 0
-      ? negativeSentiments.reduce((a, b) => a + b, 0) / negativeSentiments.length
-      : 0;
-
-    // Convert from -1 scale to 0-100 (more negative = higher score)
-    return Math.round(Math.abs(avgNegativeSentiment) * 100);
+    if (articles.length === 0) return 0;
+    
+    const criticismKeywords = [
+      'criticized', 'condemned', 'attacked', 'slammed', 'blasted',
+      'denounced', 'rejected', 'opposed', 'protest', 'backlash',
+      'outrage', 'anger', 'fury', 'uproar', 'dispute', 'challenge',
+      'questioned', 'doubt', 'concern', 'worry', 'fear', 'threat'
+    ];
+    
+    // Count articles with criticism keywords
+    const criticismArticles = articles.filter(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      return criticismKeywords.some(keyword => text.includes(keyword));
+    });
+    
+    // Also consider negative sentiment articles
+    const negativeSentiments = articles.filter(a => (a.sentiment || 0) < -0.15);
+    
+    // Combine both factors
+    const criticismPercentage = criticismArticles.length / articles.length;
+    const negativeSentimentPercentage = negativeSentiments.length / articles.length;
+    
+    const combinedScore = Math.max(criticismPercentage, negativeSentimentPercentage);
+    
+    return Math.min(100, Math.round(combinedScore * 300));
   }
 
   private estimateDisputeVolume(articles: any[]): number {
-    const disputeKeywords = ['debate', 'dispute', 'conflict', 'disagreement', 'divided'];
+    if (articles.length === 0) return 0;
     
-    const disputeArticles = articles.filter(a =>
-      disputeKeywords.some(keyword =>
-        (a.title?.toLowerCase() || '').includes(keyword) ||
-        (a.description?.toLowerCase() || '').includes(keyword)
-      )
-    );
+    const disputeKeywords = [
+      'debate', 'dispute', 'conflict', 'disagreement', 'divided',
+      'polarizing', 'controversial', 'contentious', 'divisive',
+      'clash', 'battle', 'fight', 'confrontation', 'showdown',
+      'tension', 'friction', 'rivalry', 'feud', 'row'
+    ];
+    
+    const disputeArticles = articles.filter(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      return disputeKeywords.some(keyword => text.includes(keyword));
+    });
+    
+    // Also detect polarization from sentiment variance
+    const sentiments = articles.map(a => a.sentiment || 0);
+    const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
+    const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
+    
+    // High variance (>0.3) indicates polarization
+    const polarizationScore = Math.min(50, variance * 150);
+    
+    // Combine dispute keyword percentage with polarization
+    const disputePercentage = (disputeArticles.length / articles.length) * 250;
+    
+    return Math.min(100, Math.round(disputePercentage + polarizationScore));
+  }
 
-    return Math.min(100, Math.round((disputeArticles.length / Math.max(1, articles.length)) * 150));
+  /**
+   * Estimate polarization from news articles (replaces Reddit polarization)
+   * Looks at sentiment variance and controversial keywords
+   */
+  private estimatePolarization(articles: any[]): number {
+    if (articles.length === 0) return 0;
+    
+    // 1. Sentiment variance (mixed opinions = polarization)
+    const sentiments = articles.map(a => a.sentiment || 0);
+    const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
+    const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
+    const varianceScore = Math.min(50, variance * 200);
+    
+    // 2. Polarization keywords
+    const polarizationKeywords = [
+      'polarizing', 'divisive', 'divided', 'controversial', 'contentious',
+      'split', 'partisan', 'bipartisan', 'supporters', 'critics',
+      'love him', 'hate him', 'both sides', 'opinions divided'
+    ];
+    
+    const polarizingArticles = articles.filter(a => {
+      const text = `${a.title?.toLowerCase() || ''} ${a.description?.toLowerCase() || ''}`;
+      return polarizationKeywords.some(keyword => text.includes(keyword));
+    });
+    
+    const keywordScore = Math.min(50, (polarizingArticles.length / articles.length) * 400);
+    
+    return Math.round(varianceScore + keywordScore);
   }
 
   private calculateSourceConfidence(dataCount: number, expected: number): number {
