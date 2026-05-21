@@ -210,21 +210,21 @@ export class WikipediaFetcher {
    * Heavily weighted towards page views for better differentiation
    */
   getInfluenceScore(data: WikipediaData | null): number {
-    if (!data) return 0;
+    if (!data) return 15; // Higher base for anyone notable
 
     // Score based on page views (normalize to 0-100)
-    // Adjusted thresholds for better distribution:
-    // 50k views = 50, 200k = 100
-    const viewScore = Math.min(100, (data.pageViews / 200000) * 100);
+    // More realistic thresholds for world leaders:
+    // 10k views = 40, 100k = 80, 500k+ = 100
+    const viewScore = Math.min(100, Math.sqrt(data.pageViews / 5000) * 45);
 
-    // Score based on article length
-    const lengthScore = Math.min(100, (data.extract.length / 5000) * 100);
+    // Score based on article length (longer = more comprehensive)
+    const lengthScore = Math.min(100, (data.extract.length / 3000) * 100);
 
     // Score based on categories (more categories = more notable)
-    const categoryScore = Math.min(100, data.categories.length * 5);
+    const categoryScore = Math.min(100, data.categories.length * 8);
 
-    // Heavily weighted towards page views (70% instead of 50%)
-    return Math.round(viewScore * 0.7 + lengthScore * 0.2 + categoryScore * 0.1);
+    // Balanced weighting: views 60%, length 25%, categories 15%
+    return Math.round(Math.max(25, viewScore * 0.6 + lengthScore * 0.25 + categoryScore * 0.15));
   }
 
   /**

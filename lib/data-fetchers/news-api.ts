@@ -362,16 +362,16 @@ export class NewsAPIFetcher {
       const sentiment = a.sentiment || 0;
       const text = `${a.title} ${a.description}`.toLowerCase();
       
-      // HARSHER threshold (0 instead of -0.05)
-      const hasNegativeSentiment = sentiment < 0;
+      // More balanced threshold (-0.1)
+      const hasNegativeSentiment = sentiment < -0.1;
       const hasControversyKeywords = controversyKeywords.some(kw => text.includes(kw));
       
       return hasNegativeSentiment || hasControversyKeywords;
     });
 
-    // ULTRA-AGGRESSIVE scaling (×350 instead of ×200)
+    // More balanced scaling (×130 - much more reasonable)
     const percentage = negativeArticles.length / articles.length;
-    return Math.min(100, Math.round(percentage * 350));
+    return Math.min(85, Math.round(percentage * 130));
   }
 }
 
