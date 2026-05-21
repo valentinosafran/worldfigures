@@ -93,19 +93,47 @@ export class NewsAPIFetcher {
 
   /**
    * Batch fetch news for multiple people at once
-   * Since NewsAPI doesn't support true batch, we use fallback for all to be consistent
+   * Calls real NewsAPI for each person with rate limiting
+   * Falls back to generated articles only on errors
    */
   async batchFetchNews(personNames: string[]): Promise<Map<string, NewsArticle[]>> {
-    console.log(`📰 Batch generating articles for ${personNames.length} people...`);
+    console.log(`📰 Batch fetching real news for ${personNames.length} people from NewsAPI...`);
     
     const results = new Map<string, NewsArticle[]>();
     
-    // Generate fallback articles for all people at once (consistent approach)
-    for (const personName of personNames) {
-      results.set(personName, this.getFallbackArticles(personName));
+    // Fetch real news for each person with small delays to avoid rate limits
+    for (let i = 0; i < personNames.length; i++) {
+      const personName = personNames[i];
+      
+      try {
+        // Call real NewsAPI
+        const articles = await this.fetchNews(personName, 30);
+        
+        // If we got real articles, use them
+        if (articles.length > 0) {
+          results.set(personName, articles);
+        } else {
+          // If no articles found, use fallback
+          console.warn(`⚠️ No articles found for "${personName}", using fallback`);
+          results.set(personName, this.getFallbackArticles(personName));
+        }
+        
+        // Small delay between requests to be nice to the API (avoid rate limits)
+        if (i < personNames.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch news for "${personName}":`, error);
+        // Use fallback on error
+        results.set(personName, this.getFallbackArticles(personName));
+      }
     }
     
-    console.log(`✅ Generated articles for ${results.size} people`);
+    const realCount = Array.from(results.values()).filter(articles => 
+      articles.length > 0 && articles[0].url.startsWith('http')
+    ).length;
+    
+    console.log(`✅ Batch fetch complete: ${realCount}/${personNames.length} with real news, ${personNames.length - realCount} with fallback`);
     return results;
   }
 
