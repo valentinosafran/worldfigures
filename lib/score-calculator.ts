@@ -25,12 +25,31 @@ export class ScoreCalculator {
     console.log(`⚠️  Reddit API access restricted - scores will be calculated without Reddit data`);
 
     // Fetch data from all sources in parallel
-    const [newsArticles, redditPosts, trendData, wikiPage] = await Promise.all([
-      newsAPIFetcher.fetchNews(personName, 30),
-      Promise.resolve([]), // Skip Reddit - API no longer accessible
-      googleTrendsFetcher.getInterestOverTime(personName),
-      this.getWikiData(wikiPageName),
-    ]);
+    let newsArticles: any[] = [];
+    let redditPosts: any[] = [];
+    let trendData: any[] = [];
+    let wikiPage: any = null;
+
+    try {
+      const results = await Promise.allSettled([
+        newsAPIFetcher.fetchNews(personName, 30),
+        Promise.resolve([]), // Skip Reddit - API no longer accessible
+        googleTrendsFetcher.getInterestOverTime(personName),
+        this.getWikiData(wikiPageName),
+      ]);
+
+      newsArticles = results[0].status === 'fulfilled' ? results[0].value : [];
+      redditPosts = results[1].status === 'fulfilled' ? results[1].value : [];
+      trendData = results[2].status === 'fulfilled' ? results[2].value : [];
+      wikiPage = results[3].status === 'fulfilled' ? results[3].value : null;
+
+      // Log any rejections
+      if (results[0].status === 'rejected') console.error('❌ NewsAPI failed:', results[0].reason);
+      if (results[2].status === 'rejected') console.error('❌ Google Trends failed:', results[2].reason);
+      if (results[3].status === 'rejected') console.error('❌ Wikipedia failed:', results[3].reason);
+    } catch (error) {
+      console.error('❌ Error fetching data:', error);
+    }
 
     console.log(`Data fetched in ${Date.now() - startTime}ms`);
     console.log(`- News articles: ${newsArticles.length}`);
@@ -66,10 +85,11 @@ export class ScoreCalculator {
       },
     ];
 
-    // Filter out sources with 0 confidence (no data)
-    const activeSources = sources.filter(s => s.confidence > 0);
+    // Include ALL sources in response so user can see what was called
+    // Don't filter out sources with 0 confidence
+    const activeSources = sources;
 
-    const overallConfidence = this.calculateOverallConfidence(activeSources);
+    const overallConfidence = this.calculateOverallConfidence(sources.filter(s => s.confidence > 0));
 
     // Analyze content to extract insights
     console.log('📊 Analyzing content for insights...');
@@ -684,8 +704,8 @@ export class ScoreCalculator {
           },
         ];
 
-        const activeSources = sources.filter(s => s.confidence > 0);
-        const overallConfidence = this.calculateOverallConfidence(activeSources);
+        // Include ALL sources, even those with 0 confidence, for transparency
+        const overallConfidence = this.calculateOverallConfidence(sources.filter(s => s.confidence > 0));
 
         // Analyze content to extract insights
         const insights = contentAnalyzer.analyzeProfile(newsArticles, breakdown, trendData);
@@ -693,7 +713,7 @@ export class ScoreCalculator {
         results.set(person.slug, {
           personSlug: person.slug,
           personName: person.name,
-          sources: activeSources,
+          sources, // Include all sources
           breakdown,
           confidence: overallConfidence,
           lastUpdated: new Date().toISOString(),
