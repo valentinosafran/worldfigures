@@ -626,6 +626,22 @@ export class ScoreCalculator {
     ]);
 
     console.log(`✅ Batch data fetched in ${Date.now() - startTime}ms`);
+    console.log(`   News: ${newsMap.size} profiles`);
+    console.log(`   Wikipedia: ${wikiMap.size} profiles`);
+
+    // Fetch Google Trends for each person (can't be batched)
+    const trendsMap = new Map<string, any[]>();
+    console.log(`📊 Fetching Google Trends data for ${people.length} people...`);
+    for (const person of people) {
+      try {
+        const trendData = await googleTrendsFetcher.getInterestOverTime(person.name);
+        trendsMap.set(person.name, trendData);
+      } catch (error) {
+        console.error(`⚠️ Google Trends failed for ${person.name}:`, error instanceof Error ? error.message : 'Unknown error');
+        trendsMap.set(person.name, []);
+      }
+    }
+    console.log(`✅ Google Trends: ${Array.from(trendsMap.values()).filter(t => t.length > 0).length} profiles with data`);
 
     // Process each person with the batched data
     for (let i = 0; i < people.length; i++) {
@@ -635,10 +651,10 @@ export class ScoreCalculator {
       try {
         const newsArticles = newsMap.get(person.name) || [];
         const redditPosts: any[] = []; // Reddit API not accessible
-        const trendData: any[] = []; // Skip trends in batch mode for speed
+        const trendData = trendsMap.get(person.name) || [];
         const wikiPage = wikiMap.get(wikiPageName) || null;
 
-        console.log(`  ${person.name}: ${newsArticles.length} articles, wiki: ${wikiPage ? 'found' : 'none'}`);
+        console.log(`  ${person.name}: ${newsArticles.length} articles, ${trendData.length} trends, wiki: ${wikiPage ? 'found' : 'none'}`);
 
         // Calculate component scores
         const breakdown = this.calculateBreakdown(newsArticles, redditPosts, trendData, wikiPage);
@@ -651,6 +667,13 @@ export class ScoreCalculator {
             data: { articleCount: newsArticles.length },
             timestamp: new Date().toISOString(),
             confidence: newsArticles.length > 0 ? 100 : 0,
+          },
+          {
+            type: 'trends',
+            name: 'Google Trends',
+            data: { dataPoints: trendData.length },
+            timestamp: new Date().toISOString(),
+            confidence: trendData.length > 0 ? 100 : 0,
           },
           {
             type: 'wikipedia',

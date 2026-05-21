@@ -58,14 +58,16 @@ export interface APIResponse {
   data?: APIPersonData;
   error?: string;
   message?: string;
+  cached?: boolean;
+  stale?: boolean;
 }
 
 /**
  * Fetch person data from the API
  * @param slug - Person slug (e.g., 'donald-trump')
- * @returns API data or null if failed
+ * @returns API data with metadata or null if failed
  */
-export async function fetchPersonData(slug: string): Promise<APIPersonData | null> {
+export async function fetchPersonData(slug: string): Promise<(APIPersonData & { cached?: boolean; stale?: boolean }) | null> {
   try {
     // In Next.js App Router, we can use relative URLs on the server
     // and absolute URLs on the client
@@ -90,7 +92,11 @@ export async function fetchPersonData(slug: string): Promise<APIPersonData | nul
       return null;
     }
 
-    return result.data;
+    return {
+      ...result.data,
+      cached: result.cached || false,
+      stale: result.stale || false,
+    };
   } catch (error) {
     console.error(`Error fetching data for ${slug}:`, error);
     return null;

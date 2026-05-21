@@ -83,7 +83,8 @@ export default async function PersonProfilePage({
 
   const confidence = apiData ? apiData.confidence : person.sourceConfidence;
   const lastUpdated = apiData ? formatLastUpdated(apiData.lastUpdated) : person.lastUpdated;
-  const isLiveData = !!apiData;
+  const isLiveData = !!apiData && !apiData.cached && !apiData.stale;
+  const isCachedData = apiData?.cached || apiData?.stale || false;
   const signalScore = apiData?.signalScore || 0;
   const movement7d = apiData?.movement7d || null;
   
@@ -138,8 +139,8 @@ export default async function PersonProfilePage({
               </div>
               <div className="miniMetricCard">
                 <span>Data status</span>
-                <strong className={isLiveData ? "trend-up" : "trend-flat"}>
-                  {isLiveData ? "🔴 Live" : "📊 Static"}
+                <strong className={isLiveData ? "trend-up" : isCachedData ? "trend-flat" : "trend-down"}>
+                  {isLiveData ? "🔴 Live" : isCachedData ? "🟭 Cached" : "📊 Static"}
                 </strong>
               </div>
               <div className="miniMetricCard">
