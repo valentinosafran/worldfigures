@@ -139,21 +139,26 @@ export class WikipediaFetcher {
       }
 
       // Batch fetch page views (this is slower, but necessary)
-      // We'll fetch them in parallel with limited concurrency
+      // We'll fetch them in parallel with limited concurrency and longer timeouts
       const viewsPromises = Array.from(results.keys()).map(async (pageName) => {
-        const views = await this.getPageViews(pageName);
-        const existingData = results.get(pageName);
-        if (existingData) {
-          results.set(pageName, { ...existingData, pageViews: views });
+        try {
+          const views = await this.getPageViews(pageName);
+          const existingData = results.get(pageName);
+          if (existingData) {
+            results.set(pageName, { ...existingData, pageViews: views });
+          }
+        } catch (error) {
+          console.error(`⚠️ Failed to get pageviews for ${pageName}:`, error);
+          // Keep the existing data with 0 pageviews rather than fail completely
         }
       });
 
-      // Process pageviews in batches of 5 to avoid overwhelming the API
-      const batchSize = 5;
+      // Process pageviews in smaller batches of 3 to avoid overwhelming the API
+      const batchSize = 3;
       for (let i = 0; i < viewsPromises.length; i += batchSize) {
         await Promise.all(viewsPromises.slice(i, i + batchSize));
         if (i + batchSize < viewsPromises.length) {
-          await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 500)); // Longer delay between batches
         }
       }
 
@@ -186,7 +191,7 @@ export class WikipediaFetcher {
         headers: {
           'User-Agent': 'WorldFigures/1.0 (https://worldfigures.com)',
         },
-        timeout: 10000 
+        timeout: 15000  // Increased from 10s to 15s for batch mode
       });
 
       if (response.data.items) {
@@ -194,13 +199,23 @@ export class WikipediaFetcher {
           (sum: number, item: any) => sum + (item.views || 0),
           0
         );
-        console.log(`✅ Wikipedia pageviews: ${totalViews} views for "${pageName}"`);
+        if (totalViews > 0) {
+          console.log(`✅ Wikipedia pageviews: ${totalViews.toLocaleString()} for "${pageName}"`);
+        }
         return totalViews;
       }
 
+      console.warn(`⚠️ No pageview data for "${pageName}"`);
       return 0;
     } catch (error: any) {
-      console.error('❌ Error fetching Wikipedia page views:', error.message);
+      // More detailed error logging
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        console.error(`⏱️ Timeout fetching pageviews for "${pageName}"`);
+      } else if (error.response?.status) {
+        console.error(`❌ HTTP ${error.response.status} fetching pageviews for "${pageName}"`);
+      } else {
+        console.error(`❌ Error fetching pageviews for "${pageName}": ${error.message}`);
+      }
       return 0;
     }
   }
