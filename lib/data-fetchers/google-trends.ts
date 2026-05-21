@@ -25,9 +25,15 @@ export class GoogleTrendsFetcher {
    */
   async getInterestOverTime(
     keyword: string,
-    startTime: Date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    startTime: Date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    addDelay: boolean = true
   ): Promise<TrendData[]> {
     console.log(`📊 Fetching Google Trends for "${keyword}"...`);
+    
+    // Add delay to avoid rate limiting (only for non-first requests)
+    if (addDelay) {
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3 second delay
+    }
     
     const variations = this.generateKeywordVariations(keyword);
     const geoOptions = ['', 'US', 'GB']; // Try worldwide first, then US, then UK

@@ -34,7 +34,7 @@ export class ScoreCalculator {
       const results = await Promise.allSettled([
         newsAPIFetcher.fetchNews(personName, 30),
         Promise.resolve([]), // Skip Reddit - API no longer accessible
-        googleTrendsFetcher.getInterestOverTime(personName),
+        googleTrendsFetcher.getInterestOverTime(personName, undefined, false), // No delay for individual requests
         this.getWikiData(wikiPageName),
       ]);
 
@@ -649,19 +649,10 @@ export class ScoreCalculator {
     console.log(`   News: ${newsMap.size} profiles`);
     console.log(`   Wikipedia: ${wikiMap.size} profiles`);
 
-    // Fetch Google Trends for each person (can't be batched)
+    // Skip Google Trends in batch mode - it's too slow and gets rate limited
+    // Google Trends only works well for individual profile requests
+    console.log(`⚠️ Skipping Google Trends in batch mode (rate limits prevent bulk fetching)`);
     const trendsMap = new Map<string, any[]>();
-    console.log(`📊 Fetching Google Trends data for ${people.length} people...`);
-    for (const person of people) {
-      try {
-        const trendData = await googleTrendsFetcher.getInterestOverTime(person.name);
-        trendsMap.set(person.name, trendData);
-      } catch (error) {
-        console.error(`⚠️ Google Trends failed for ${person.name}:`, error instanceof Error ? error.message : 'Unknown error');
-        trendsMap.set(person.name, []);
-      }
-    }
-    console.log(`✅ Google Trends: ${Array.from(trendsMap.values()).filter(t => t.length > 0).length} profiles with data`);
 
     // Process each person with the batched data
     for (let i = 0; i < people.length; i++) {
@@ -691,9 +682,9 @@ export class ScoreCalculator {
           {
             type: 'trends',
             name: 'Google Trends',
-            data: { dataPoints: trendData.length },
+            data: { note: 'Skipped in batch mode (rate limits)', dataPoints: 0 },
             timestamp: new Date().toISOString(),
-            confidence: trendData.length > 0 ? 100 : 0,
+            confidence: 0,
           },
           {
             type: 'wikipedia',
