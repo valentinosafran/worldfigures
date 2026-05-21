@@ -7,7 +7,8 @@ export const revalidate = 0;
 
 /**
  * Cron endpoint to automatically refresh all profiles
- * Vercel Cron will call this endpoint every 12 hours
+ * Vercel Cron will call this endpoint once daily at 6 AM UTC (±59 min)
+ * Hobby plan limitation: minimum interval is once per day
  * This keeps cached data fresh without manual requests
  */
 export async function GET(request: NextRequest) {

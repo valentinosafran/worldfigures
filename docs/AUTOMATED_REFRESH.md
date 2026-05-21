@@ -1,18 +1,18 @@
 # Automated Data Refresh System
 
 ## Overview
-The platform now automatically refreshes all 42 profiles **twice daily** at 6 AM and 6 PM UTC using Vercel Cron Jobs. This keeps cached data fresh without manual intervention while staying within free API limits.
+The platform now automatically refreshes all 42 profiles **once daily** at 6 AM UTC using Vercel Cron Jobs. This keeps cached data fresh without manual intervention while staying well within free API limits.
 
 ## How It Works
 
 ### 1. **Cron Schedule**
-- **Frequency**: Every 12 hours (2x per day)
-- **Times**: 6:00 AM and 6:00 PM UTC
-- **API Calls**: 84 calls/day (42 profiles × 2) - within NewsAPI's 100/day free limit
+- **Frequency**: Once per day (Vercel Hobby plan limitation)
+- **Time**: 6:00 AM UTC (±59 minutes scheduling precision)
+- **API Calls**: 42 calls/day (42 profiles × 1) - well within NewsAPI's 100/day free limit
 
 ### 2. **Data Flow**
 ```
-Vercel Cron (6 AM/PM UTC)
+Vercel Cron (6 AM UTC daily)
   ↓
 /api/cron/refresh endpoint
   ↓
@@ -35,8 +35,8 @@ Users see fresh data on next visit
 ```
 NewsAPI Free Tier:
 - Limit: 100 requests/24 hours
-- Our Usage: 84 requests/day (cron) + ~16 spare for manual refreshes
-- Per Profile: 2 updates/day (morning & evening)
+- Our Usage: 42 requests/day (cron) + ~58 spare for manual refreshes
+- Per Profile: 1 automatic update/day (morning)
 
 Wikipedia:
 - No rate limit on free tier
@@ -79,11 +79,11 @@ git push
 
 #### Step 3: Verify Cron is Active
 1. Go to Vercel Dashboard → Your Project → Cron Jobs
-2. You should see: `/api/cron/refresh` scheduled for "0 6,18 * * *"
+2. You should see: `/api/cron/refresh` scheduled for "0 6 * * *"
 3. Vercel will automatically start calling this endpoint
 
 #### Step 4: Monitor Execution
-- Check Vercel Logs (Observability tab) at 6 AM/PM UTC
+- Check Vercel Logs (Observability tab) around 6 AM UTC (±59 min precision)
 - Look for: `✅ Refresh complete: 42/42 succeeded`
 - Failed refreshes will show: `❌ Failed profiles: [list]`
 
@@ -111,19 +111,22 @@ Edit `vercel.json` to change schedule:
   "crons": [
     {
       "path": "/api/cron/refresh",
-      "schedule": "0 6,18 * * *"  // Change this cron expression
+      "schedule": "0 6 * * *"  // Change this cron expression
     }
   ]
 }
 ```
 
 **Cron Expression Examples**:
-- Every 6 hours: `"0 */6 * * *"` (96 calls/day - exceeds limit!)
-- Every 12 hours: `"0 6,18 * * *"` (84 calls/day - current)
-- Once daily at 6 AM: `"0 6 * * *"` (42 calls/day - conservative)
-- Every Monday at 9 AM: `"0 9 * * 1"` (6 calls/day - very conservative)
+- Once daily at 6 AM: `"0 6 * * *"` (42 calls/day - current, Hobby plan compatible)
+- Once daily at 12 PM: `"0 12 * * *"` (42 calls/day - alternative time)
+- Once daily at 6 PM: `"0 18 * * *"` (42 calls/day - evening refresh)
+- Every Monday at 9 AM: `"0 9 * * 1"` (6 calls/day - weekly only)
 
-**⚠️ Important**: Keep API usage under 100 calls/day for NewsAPI free tier!
+**⚠️ Important**: 
+- Hobby plan minimum interval: Once per day
+- Scheduling precision: ±59 minutes from scheduled time
+- Keep API usage under 100 calls/day for NewsAPI free tier
 
 ## Data Freshness Indicators
 
@@ -160,7 +163,7 @@ Profile pages show data status:
 
 | API | Free Tier Limit | Our Usage | Buffer |
 |-----|----------------|-----------|---------|
-| NewsAPI | 100/day | 84/day | 16/day |
+| NewsAPI | 100/day | 42/day | 58/day |
 | Wikipedia | Unlimited | ~1/batch | N/A |
 | Google Trends | ~100/hour | Skipped in batch | N/A |
 
