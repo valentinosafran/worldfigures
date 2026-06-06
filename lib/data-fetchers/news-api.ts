@@ -314,38 +314,41 @@ export class NewsAPIFetcher {
     ];
     
     let approvalScore = 0;
-    let sentimentSum = 0;
+    let sentimentWeightedSum = 0;
     let keywordHits = 0;
+    let totalWeight = 0;
     
     articles.forEach(a => {
       const text = `${a.title} ${a.description}`.toLowerCase();
       const sentiment = a.sentiment || 0;
-      sentimentSum += sentiment;
+      const weight = a.credibility || 1;
+      sentimentWeightedSum += sentiment * weight;
+      totalWeight += weight;
       
       // Strong keywords worth more
       if (strongApprovalKeywords.some(kw => text.includes(kw))) {
-        approvalScore += 4;
+        approvalScore += 4 * weight;
         keywordHits++;
       } else if (moderateApprovalKeywords.some(kw => text.includes(kw))) {
-        approvalScore += 2;
+        approvalScore += 2 * weight;
         keywordHits++;
       }
       
       if (strongDisapprovalKeywords.some(kw => text.includes(kw))) {
-        approvalScore -= 4;
+        approvalScore -= 4 * weight;
         keywordHits++;
       } else if (moderateDisapprovalKeywords.some(kw => text.includes(kw))) {
-        approvalScore -= 2;
+        approvalScore -= 2 * weight;
         keywordHits++;
       }
     });
     
-    // Calculate average sentiment (more weight if no keywords found)
-    const avgSentiment = sentimentSum / articles.length;
+    // Calculate weighted average sentiment
+    const avgSentiment = totalWeight > 0 ? sentimentWeightedSum / totalWeight : 0;
     
     if (keywordHits > 0) {
       // EXTREME keyword weighting - even more decisive
-      const keywordComponent = (approvalScore / articles.length) * 50;
+      const keywordComponent = (approvalScore / Math.max(totalWeight, 1)) * 50;
       const sentimentComponent = avgSentiment * 60;
       const combined = 50 + keywordComponent + sentimentComponent;
       return Math.max(10, Math.min(95, Math.round(combined)));
@@ -361,7 +364,9 @@ export class NewsAPIFetcher {
    * Get coverage volume score (0-100 based on article count)
    */
   getCoverageScore(articles: NewsArticle[], maxExpected: number = 100): number {
-    return Math.min(100, Math.round((articles.length / maxExpected) * 100));
+    if (articles.length === 0) return 0;
+    const weightedCount = articles.reduce((sum, article) => sum + (article.credibility || 1), 0);
+    return Math.min(100, Math.round((weightedCount / maxExpected) * 100));
   }
 
   /**
@@ -386,19 +391,22 @@ export class NewsAPIFetcher {
       'slam', 'blast', 'hit out', 'lash out', 'rebuke', 'censure'
     ];
 
-    const negativeArticles = articles.filter(a => {
+    const totalWeight = articles.reduce((sum, a) => sum + (a.credibility || 1), 0);
+
+    const negativeWeight = articles.reduce((sum, a) => {
       const sentiment = a.sentiment || 0;
       const text = `${a.title} ${a.description}`.toLowerCase();
+      const weight = a.credibility || 1;
       
       // More balanced threshold (-0.1)
       const hasNegativeSentiment = sentiment < -0.1;
       const hasControversyKeywords = controversyKeywords.some(kw => text.includes(kw));
       
-      return hasNegativeSentiment || hasControversyKeywords;
-    });
+      return hasNegativeSentiment || hasControversyKeywords ? sum + weight : sum;
+    }, 0);
 
     // More balanced scaling (×130 - much more reasonable)
-    const percentage = negativeArticles.length / articles.length;
+    const percentage = totalWeight > 0 ? negativeWeight / totalWeight : 0;
     return Math.min(85, Math.round(percentage * 130));
   }
 }

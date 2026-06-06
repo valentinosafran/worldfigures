@@ -97,6 +97,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: enrichedResult,
+      crawlDiagnostics: enrichedResult?.crawlDiagnostics,
       cached: usedFallback,
       stale: usedFallback, // Indicate this is fallback data
     });

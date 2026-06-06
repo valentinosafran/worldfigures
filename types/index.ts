@@ -78,6 +78,9 @@ export type NewsArticle = {
   source: string;
   publishedAt: string;
   sentiment?: number;
+  credibility?: number;
+  sourceDomain?: string;
+  sourceCategory?: 'polling' | 'fact-check' | 'major-media' | 'regional-media' | 'other';
 };
 
 export type TrendData = {
@@ -110,6 +113,25 @@ export type AggregatedData = {
   breakdown: ScoreBreakdown;
   confidence: number;
   lastUpdated: string;
+  crawlDiagnostics?: {
+    newsTelemetry: {
+      articleCount: number;
+      byCategory: Record<string, number>;
+      byCredibility: {
+        high: number;
+        medium: number;
+        low: number;
+        average: number;
+      };
+      topDomains: Array<{ domain: string; count: number }>;
+    };
+    sourceReputation: {
+      domainsEvaluated: number;
+      domainsWithHistory: number;
+      averageHistoricalReputation: number;
+      domainsUpdated: number;
+    };
+  };
   keyTopics: string[];
   movementNotes: string[];
   strengthSignals: string[];

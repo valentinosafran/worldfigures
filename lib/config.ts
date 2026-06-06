@@ -4,11 +4,30 @@
 // REDDIT_CLIENT_ID=your_id
 // REDDIT_CLIENT_SECRET=your_secret
 
+const parseEnvList = (value: string | undefined): string[] => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+};
+
 export const API_CONFIG = {
   newsApi: {
     baseUrl: 'https://newsapi.org/v2',
     key: process.env.NEWSAPI_KEY || '',
     maxResults: 100,
+  },
+  crawler: {
+    requestTimeoutMs: 10000,
+    robotsTimeoutMs: 5000,
+    maxRetries: 2,
+    retryBaseDelayMs: 600,
+    perHostMinIntervalMs: 800,
+    batchPersonDelayMs: 350,
+    maxArticlesPerPerson: 120,
+    domainAllowlist: parseEnvList(process.env.CRAWLER_DOMAIN_ALLOWLIST),
+    domainBlocklist: parseEnvList(process.env.CRAWLER_DOMAIN_BLOCKLIST),
   },
   reddit: {
     baseUrl: 'https://www.reddit.com',

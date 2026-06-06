@@ -1,11 +1,13 @@
 import { newsAPIFetcher } from './data-fetchers/news-api';
+import { newsCrawlerFetcher } from './data-fetchers/news-crawler';
 import { redditFetcher } from './data-fetchers/reddit';
 import { googleTrendsFetcher } from './data-fetchers/google-trends';
 import { wikipediaFetcher } from './data-fetchers/wikipedia';
 import { contentAnalyzer } from './content-analyzer';
 import { SCORING_WEIGHTS } from './config';
 import { getWikipediaPageName } from './wikipedia-mappings';
-import { ScoreBreakdown, AggregatedData, DataSource } from '../types';
+import { ScoreBreakdown, AggregatedData, DataSource, NewsArticle } from '../types';
+import { getSourceReputation, updateSourceReputation } from './redis';
 
 export class ScoreCalculator {
   /**
@@ -32,7 +34,7 @@ export class ScoreCalculator {
 
     try {
       const results = await Promise.allSettled([
-        newsAPIFetcher.fetchNews(personName, 30),
+        newsCrawlerFetcher.fetchNews(personName, 30),
         Promise.resolve([]), // Skip Reddit - API no longer accessible
         googleTrendsFetcher.getInterestOverTime(personName, undefined, false), // No delay for individual requests
         this.getWikiData(wikiPageName),
@@ -51,6 +53,9 @@ export class ScoreCalculator {
       console.error('❌ Error fetching data:', error);
     }
 
+    const reputationApplied = await this.applySourceReputation(newsArticles as NewsArticle[]);
+    newsArticles = reputationApplied.articles;
+
     console.log(`Data fetched in ${Date.now() - startTime}ms`);
     console.log(`- News articles: ${newsArticles.length}`);
     console.log(`- Reddit posts: ${redditPosts.length} (skipped - API restricted)`);
@@ -61,11 +66,16 @@ export class ScoreCalculator {
     const breakdown = this.calculateBreakdown(newsArticles, redditPosts, trendData, wikiPage);
 
     // Prepare data sources metadata - only include sources with data
+    const newsTelemetry = newsCrawlerFetcher.getSourceTelemetry(newsArticles as NewsArticle[]);
+    const crawlDiagnostics = {
+      newsTelemetry,
+      sourceReputation: reputationApplied.summary,
+    };
     const sources: DataSource[] = [
       {
         type: 'news',
-        name: 'NewsAPI',
-        data: { articleCount: newsArticles.length },
+        name: 'Web Crawl (RSS) + NewsAPI Fallback',
+        data: crawlDiagnostics,
         timestamp: new Date().toISOString(),
         confidence: this.calculateSourceConfidence(newsArticles.length, 50),
       },
@@ -103,6 +113,7 @@ export class ScoreCalculator {
       breakdown,
       confidence: overallConfidence,
       lastUpdated: new Date().toISOString(),
+      crawlDiagnostics,
       keyTopics: insights.keyTopics,
       movementNotes: insights.movementNotes,
       strengthSignals: insights.strengthSignals,
@@ -619,8 +630,97 @@ export class ScoreCalculator {
   }
 
   private calculateOverallConfidence(sources: DataSource[]): number {
+    if (sources.length === 0) return 0;
     const totalConfidence = sources.reduce((sum, source) => sum + source.confidence, 0);
     return Math.round(totalConfidence / sources.length);
+  }
+
+  private async applySourceReputation(articles: NewsArticle[]): Promise<{
+    articles: NewsArticle[];
+    summary: {
+      domainsEvaluated: number;
+      domainsWithHistory: number;
+      averageHistoricalReputation: number;
+      domainsUpdated: number;
+    };
+  }> {
+    if (articles.length === 0) {
+      return {
+        articles,
+        summary: {
+          domainsEvaluated: 0,
+          domainsWithHistory: 0,
+          averageHistoricalReputation: 0,
+          domainsUpdated: 0,
+        },
+      };
+    }
+
+    const domainSet = new Set<string>();
+    for (const article of articles) {
+      if (article.sourceDomain) {
+        domainSet.add(article.sourceDomain.toLowerCase());
+      }
+    }
+
+    const domains = Array.from(domainSet);
+    const historical = await Promise.all(domains.map((domain) => getSourceReputation(domain)));
+    const historyMap = new Map<string, number>();
+
+    historical.forEach((score, idx) => {
+      if (score !== null) {
+        historyMap.set(domains[idx], score);
+      }
+    });
+
+    const adjustedArticles = articles.map((article) => {
+      const domain = article.sourceDomain?.toLowerCase();
+      const historyScore = domain ? historyMap.get(domain) : undefined;
+      const baseCredibility = article.credibility || 0.8;
+
+      if (historyScore === undefined) {
+        return article;
+      }
+
+      const blendedCredibility = Math.max(0, Math.min(1, baseCredibility * 0.7 + historyScore * 0.3));
+      return {
+        ...article,
+        credibility: Number(blendedCredibility.toFixed(3)),
+      };
+    });
+
+    const observedByDomain = new Map<string, { sum: number; count: number }>();
+    for (const article of adjustedArticles) {
+      const domain = article.sourceDomain?.toLowerCase();
+      if (!domain) continue;
+
+      const current = observedByDomain.get(domain) || { sum: 0, count: 0 };
+      current.sum += article.credibility || 0.8;
+      current.count += 1;
+      observedByDomain.set(domain, current);
+    }
+
+    const updates = await Promise.all(
+      Array.from(observedByDomain.entries()).map(([domain, stats]) => {
+        const observed = stats.count > 0 ? stats.sum / stats.count : 0.8;
+        return updateSourceReputation(domain, observed);
+      })
+    );
+
+    const averageHistoricalReputation =
+      historyMap.size > 0
+        ? Number((Array.from(historyMap.values()).reduce((a, b) => a + b, 0) / historyMap.size).toFixed(3))
+        : 0;
+
+    return {
+      articles: adjustedArticles,
+      summary: {
+        domainsEvaluated: domains.length,
+        domainsWithHistory: historyMap.size,
+        averageHistoricalReputation,
+        domainsUpdated: updates.filter((value) => value !== null).length,
+      },
+    };
   }
 
   /**
@@ -641,7 +741,7 @@ export class ScoreCalculator {
     // Batch fetch data from all sources
     console.log(`📡 Fetching data from all sources in batch...`);
     const [newsMap, wikiMap] = await Promise.all([
-      newsAPIFetcher.batchFetchNews(people.map(p => p.name)),
+      newsCrawlerFetcher.batchFetchNews(people.map(p => p.name)),
       wikipediaFetcher.batchGetPageData(wikiPageNames),
     ]);
 
@@ -661,23 +761,30 @@ export class ScoreCalculator {
       
       try {
         const newsArticles = newsMap.get(person.name) || [];
+        const reputationApplied = await this.applySourceReputation(newsArticles as NewsArticle[]);
+        const adjustedNewsArticles = reputationApplied.articles;
         const redditPosts: any[] = []; // Reddit API not accessible
         const trendData = trendsMap.get(person.name) || [];
         const wikiPage = wikiMap.get(wikiPageName) || null;
 
-        console.log(`  ${person.name}: ${newsArticles.length} articles, ${trendData.length} trends, wiki: ${wikiPage ? 'found' : 'none'}`);
+        console.log(`  ${person.name}: ${adjustedNewsArticles.length} articles, ${trendData.length} trends, wiki: ${wikiPage ? 'found' : 'none'}`);
 
         // Calculate component scores
-        const breakdown = this.calculateBreakdown(newsArticles, redditPosts, trendData, wikiPage);
+        const breakdown = this.calculateBreakdown(adjustedNewsArticles, redditPosts, trendData, wikiPage);
 
         // Prepare data sources metadata
+        const newsTelemetry = newsCrawlerFetcher.getSourceTelemetry(adjustedNewsArticles as NewsArticle[]);
+        const crawlDiagnostics = {
+          newsTelemetry,
+          sourceReputation: reputationApplied.summary,
+        };
         const sources: DataSource[] = [
           {
             type: 'news',
-            name: 'NewsAPI',
-            data: { articleCount: newsArticles.length },
+            name: 'Web Crawl (RSS) + NewsAPI Fallback',
+            data: crawlDiagnostics,
             timestamp: new Date().toISOString(),
-            confidence: newsArticles.length > 0 ? 100 : 0,
+            confidence: adjustedNewsArticles.length > 0 ? 100 : 0,
           },
           {
             type: 'trends',
@@ -699,7 +806,7 @@ export class ScoreCalculator {
         const overallConfidence = this.calculateOverallConfidence(sources.filter(s => s.confidence > 0));
 
         // Analyze content to extract insights
-        const insights = contentAnalyzer.analyzeProfile(newsArticles, breakdown, trendData);
+        const insights = contentAnalyzer.analyzeProfile(adjustedNewsArticles, breakdown, trendData);
 
         results.set(person.slug, {
           personSlug: person.slug,
@@ -708,6 +815,7 @@ export class ScoreCalculator {
           breakdown,
           confidence: overallConfidence,
           lastUpdated: new Date().toISOString(),
+          crawlDiagnostics,
           keyTopics: insights.keyTopics,
           movementNotes: insights.movementNotes,
           strengthSignals: insights.strengthSignals,

@@ -30,6 +30,7 @@ export function getRedisClient(): Redis | null {
 export const CacheKeys = {
   personData: (slug: string) => `person:${slug}`,
   personHistory: (slug: string) => `history:${slug}`,
+  sourceReputation: (domain: string) => `source:reputation:${domain}`,
   allPeople: () => 'people:all',
   lastRefresh: () => 'meta:last-refresh',
 };
@@ -40,8 +41,15 @@ export const CacheKeys = {
 export const CacheTTL = {
   personData: 60 * 60, // 1 hour
   personHistory: 60 * 60 * 24 * 30, // 30 days
+  sourceReputation: 60 * 60 * 24 * 90, // 90 days
   allPeople: 60 * 30, // 30 minutes
   lastRefresh: 60 * 60 * 24, // 24 hours
+};
+
+type SourceReputationRecord = {
+  score: number;
+  count: number;
+  updatedAt: string;
 };
 
 /**
@@ -211,6 +219,71 @@ export async function getHistoricalData(slug: string, daysAgo: number): Promise<
     return parsed[0];
   } catch (error) {
     console.error('Redis history fetch error:', error);
+    return null;
+  }
+}
+
+/**
+ * Get source reputation score for a domain (0-1)
+ */
+export async function getSourceReputation(domain: string): Promise<number | null> {
+  const client = getRedisClient();
+  if (!client) return null;
+
+  try {
+    const key = CacheKeys.sourceReputation(domain.toLowerCase());
+    const raw = await client.get(key);
+    if (!raw) return null;
+
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed.score !== 'number') return null;
+
+    return Math.max(0, Math.min(1, parsed.score));
+  } catch (error) {
+    console.error('Redis source reputation get error:', error);
+    return null;
+  }
+}
+
+/**
+ * Update source reputation using an EWMA blend with incoming observation.
+ */
+export async function updateSourceReputation(domain: string, observedScore: number): Promise<number | null> {
+  const client = getRedisClient();
+  if (!client) return null;
+
+  try {
+    const safeDomain = domain.toLowerCase();
+    const key = CacheKeys.sourceReputation(safeDomain);
+    const boundedObserved = Math.max(0, Math.min(1, observedScore));
+    const alpha = 0.2;
+
+    const existingRaw = await client.get(key);
+    let nextScore = boundedObserved;
+    let nextCount = 1;
+
+    if (existingRaw) {
+      const existing = (typeof existingRaw === 'string'
+        ? JSON.parse(existingRaw)
+        : existingRaw) as SourceReputationRecord;
+
+      if (existing && typeof existing.score === 'number') {
+        const boundedExisting = Math.max(0, Math.min(1, existing.score));
+        nextScore = (alpha * boundedObserved) + ((1 - alpha) * boundedExisting);
+        nextCount = (existing.count || 0) + 1;
+      }
+    }
+
+    const record: SourceReputationRecord = {
+      score: Number(nextScore.toFixed(4)),
+      count: nextCount,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await client.setex(key, CacheTTL.sourceReputation, JSON.stringify(record));
+    return record.score;
+  } catch (error) {
+    console.error('Redis source reputation update error:', error);
     return null;
   }
 }

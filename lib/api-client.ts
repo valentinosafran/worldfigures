@@ -32,6 +32,25 @@ export interface APIPersonData {
   };
   confidence: number;
   lastUpdated: string;
+  crawlDiagnostics?: {
+    newsTelemetry: {
+      articleCount: number;
+      byCategory: Record<string, number>;
+      byCredibility: {
+        high: number;
+        medium: number;
+        low: number;
+        average: number;
+      };
+      topDomains: Array<{ domain: string; count: number }>;
+    };
+    sourceReputation: {
+      domainsEvaluated: number;
+      domainsWithHistory: number;
+      averageHistoricalReputation: number;
+      domainsUpdated: number;
+    };
+  };
   signalScore: number;
   movement7d?: {
     approval: number;
@@ -60,6 +79,7 @@ export interface APIResponse {
   message?: string;
   cached?: boolean;
   stale?: boolean;
+  crawlDiagnostics?: APIPersonData['crawlDiagnostics'];
 }
 
 /**
