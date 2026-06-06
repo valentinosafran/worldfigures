@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { newsCrawlerFetcher } from '../../../../../lib/data-fetchers/news-crawler';
+import { newsCrawlerFetcher } from '../../../../lib/data-fetchers/news-crawler';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
