@@ -108,6 +108,28 @@ export default function APITestPage() {
     return Math.round(total);
   };
 
+  const getControversyCalculation = (controversy: { components: Record<string, number> }) => {
+    const w = {
+      negativeCoverage: 0.3,
+      scandalFrequency: 0.25,
+      polarization: 0.25,
+      criticismIntensity: 0.15,
+      disputeVolume: 0.05,
+    };
+
+    const base = calculateScore(controversy.components, w);
+    const amplified = Math.min(
+      100,
+      Math.round(
+        (base * 1.2) +
+        ((controversy.components.negativeCoverage || 0) * 0.08) +
+        ((controversy.components.polarization || 0) * 0.05)
+      )
+    );
+
+    return { w, base, amplified };
+  };
+
   const testAPI = async () => {
     setLoading(true);
     setError(null);
@@ -413,6 +435,10 @@ export default function APITestPage() {
 
                 {/* Controversy */}
                 <div>
+                  {(() => {
+                    const c = getControversyCalculation(data.breakdown.controversy);
+                    return (
+                      <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                     <strong style={{ fontSize: '1.2rem' }}>Controversy</strong>
                     <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f87171' }}>
@@ -427,8 +453,13 @@ export default function APITestPage() {
                     <div>Disputes: <strong>{data.breakdown.controversy.components.disputeVolume}</strong> (5%)</div>
                   </div>
                   <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: 'var(--panel-2)', borderRadius: '4px', fontSize: '0.85rem' }}>
-                    <strong>Calculation:</strong> {data.breakdown.controversy.components.negativeCoverage} × 0.30 + {data.breakdown.controversy.components.scandalFrequency} × 0.25 + {data.breakdown.controversy.components.polarization} × 0.25 + {data.breakdown.controversy.components.criticismIntensity} × 0.15 + {data.breakdown.controversy.components.disputeVolume} × 0.05 = <strong>{data.breakdown.controversy.score}</strong>
+                    <strong>Base Weighted:</strong> {data.breakdown.controversy.components.negativeCoverage} × 0.30 + {data.breakdown.controversy.components.scandalFrequency} × 0.25 + {data.breakdown.controversy.components.polarization} × 0.25 + {data.breakdown.controversy.components.criticismIntensity} × 0.15 + {data.breakdown.controversy.components.disputeVolume} × 0.05 = <strong>{c.base}</strong>
+                    <br />
+                    <strong>Amplified Final:</strong> ({c.base} × 1.20) + ({data.breakdown.controversy.components.negativeCoverage} × 0.08) + ({data.breakdown.controversy.components.polarization} × 0.05) = <strong>{c.amplified}</strong>
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

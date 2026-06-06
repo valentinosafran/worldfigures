@@ -306,13 +306,23 @@ export class ScoreCalculator {
     console.log(`    Criticism Intensity: ${criticismIntensity}`);
     console.log(`    Dispute Volume: ${disputeVolume}`);
 
-    // Use standard weights (no Reddit to exclude)
-    const controversyScore = Math.round(
+    // Base weighted controversy score
+    const baseControversyScore = Math.round(
       negativeCoverage * SCORING_WEIGHTS.controversy.negativeCoverage +
       scandalFrequency * SCORING_WEIGHTS.controversy.scandalFrequency +
       polarization * SCORING_WEIGHTS.controversy.polarization +
       criticismIntensity * SCORING_WEIGHTS.controversy.criticismIntensity +
       disputeVolume * SCORING_WEIGHTS.controversy.disputeVolume
+    );
+
+    // Amplify low/medium controversy bands so meaningful negative signals are not flattened.
+    const controversyScore = Math.min(
+      100,
+      Math.round(
+        (baseControversyScore * 1.2) +
+        (negativeCoverage * 0.08) +
+        (polarization * 0.05)
+      )
     );
     
     console.log(`    → Controversy Score: ${controversyScore}`);
@@ -532,9 +542,13 @@ export class ScoreCalculator {
       return scandalKeywords.some(keyword => text.includes(keyword));
     });
 
-    // More balanced scaling (×180 - much more reasonable)
-    const percentage = (scandalArticles.length / articles.length);
-    return Math.min(95, Math.round(percentage * 180));
+    const scandalRatio = scandalArticles.length / articles.length;
+    const stronglyNegativeRatio = articles.filter(a => (a.sentiment || 0) < -0.25).length / articles.length;
+
+    // Stronger scandal detection with sentiment reinforcement and minimum lift when scandals appear.
+    const rawScore = (scandalRatio * 260) + (stronglyNegativeRatio * 70);
+    const floor = scandalArticles.length > 0 ? 14 : 0;
+    return Math.min(95, Math.max(floor, Math.round(rawScore)));
   }
 
   private estimateCriticismIntensity(articles: any[], posts: any[]): number {
@@ -560,10 +574,10 @@ export class ScoreCalculator {
     const criticismPercentage = criticismArticles.length / articles.length;
     const negativeSentimentPercentage = negativeSentiments.length / articles.length;
     
-    const combinedScore = Math.max(criticismPercentage, negativeSentimentPercentage);
-    
-    // More balanced scaling (×160 - much more reasonable)
-    return Math.min(95, Math.round(combinedScore * 160));
+    // Blend direct criticism language with negative sentiment prevalence.
+    const combinedScore = (criticismPercentage * 0.65) + (negativeSentimentPercentage * 0.35);
+    const floor = criticismArticles.length > 0 ? 12 : 0;
+    return Math.min(95, Math.max(floor, Math.round(combinedScore * 210)));
   }
 
   private estimateDisputeVolume(articles: any[]): number {
@@ -586,13 +600,13 @@ export class ScoreCalculator {
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
     
-    // Moderate variance detection (×80 - more reasonable)
-    const polarizationScore = Math.min(40, variance * 80);
+    // Stronger variance contribution for dispute-heavy narratives.
+    const polarizationScore = Math.min(45, variance * 120);
     
-    // More balanced dispute scaling (×120 - much more reasonable)
-    const disputePercentage = (disputeArticles.length / articles.length) * 120;
-    
-    return Math.min(90, Math.round(disputePercentage + polarizationScore));
+    const disputeScore = (disputeArticles.length / articles.length) * 150;
+    const floor = disputeArticles.length > 0 ? 10 : 0;
+
+    return Math.min(92, Math.max(floor, Math.round(disputeScore + polarizationScore)));
   }
 
   /**
@@ -602,17 +616,18 @@ export class ScoreCalculator {
   private estimatePolarization(articles: any[]): number {
     if (articles.length === 0) return 0;
     
-    // 1. More balanced sentiment variance (×100 - much more reasonable)
+    // 1. Stronger sentiment variance capture for polarized narratives.
     const sentiments = articles.map(a => a.sentiment || 0);
     const avgSentiment = sentiments.reduce((a, b) => a + b, 0) / sentiments.length;
     const variance = sentiments.reduce((sum, s) => sum + Math.pow(s - avgSentiment, 2), 0) / sentiments.length;
-    const varianceScore = Math.min(40, variance * 100);
+    const varianceScore = Math.min(55, variance * 170);
     
     // 2. More balanced polarization keywords (×150 - much more reasonable)
     const polarizationKeywords = [
       'polarizing', 'divisive', 'divided', 'controversial', 'contentious',
       'split', 'partisan', 'bipartisan', 'supporters', 'critics',
-      'love him', 'hate him', 'both sides', 'opinions divided'
+      'love him', 'hate him', 'both sides', 'opinions divided',
+      'clash', 'standoff', 'rival camps', 'political firestorm'
     ];
     
     const polarizingArticles = articles.filter(a => {
@@ -620,9 +635,15 @@ export class ScoreCalculator {
       return polarizationKeywords.some(keyword => text.includes(keyword));
     });
     
-    const keywordScore = Math.min(50, (polarizingArticles.length / articles.length) * 150);
-    
-    return Math.min(90, Math.round(varianceScore + keywordScore));
+    const keywordScore = Math.min(60, (polarizingArticles.length / articles.length) * 220);
+
+    // Add lift when both strong positive and strong negative narratives co-exist.
+    const positiveShare = sentiments.filter(s => s > 0.2).length / sentiments.length;
+    const negativeShare = sentiments.filter(s => s < -0.2).length / sentiments.length;
+    const mixedNarrativeBonus = positiveShare > 0.08 && negativeShare > 0.08 ? 15 : 0;
+
+    const floor = polarizingArticles.length > 0 ? 12 : 0;
+    return Math.min(95, Math.max(floor, Math.round(varianceScore + keywordScore + mixedNarrativeBonus)));
   }
 
   private calculateSourceConfidence(dataCount: number, expected: number): number {
