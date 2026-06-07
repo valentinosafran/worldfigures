@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { people } from '../data/people';
 import { getOpinionClass } from '../lib/label-calculator';
 import { InlineVoteDisplay } from './inline-vote-display';
@@ -13,6 +13,31 @@ interface ProfileVotes {
   downvotes: number;
 }
 
+function TableRowSkeleton() {
+  return (
+    <div className="dashboardRow dashboardRowSkeleton" style={{ opacity: 0.5, pointerEvents: 'none' }}>
+      <span className="dashboardNumericCell dashboardRankCell">
+        <div style={{ width: '30px', height: '16px', background: 'var(--border)', borderRadius: '4px' }} />
+      </span>
+      <span className="dashboardNameCell">
+        <div style={{ width: '40px', height: '40px', background: 'var(--border)', borderRadius: '50%' }} />
+        <span className="dashboardFigureText">
+          <div style={{ width: '130px', height: '16px', background: 'var(--border)', borderRadius: '4px', marginBottom: '4px' }} />
+          <div style={{ width: '90px', height: '12px', background: 'var(--border)', borderRadius: '4px' }} />
+        </span>
+      </span>
+      <span className="dashboardRegionCell">
+        <div style={{ width: '80px', height: '16px', background: 'var(--border)', borderRadius: '4px' }} />
+      </span>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span className="dashboardNumericCell" key={`s-${i}`}>
+          <div style={{ width: '40px', height: '16px', background: 'var(--border)', borderRadius: '4px' }} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function CommunityRankingsClient() {
   const [rankings, setRankings] = useState<ProfileVotes[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,6 +46,18 @@ export function CommunityRankingsClient() {
   useEffect(() => {
     async function fetchAllVotes() {
       try {
+        const response = await fetch('/api/vote/bulk', { cache: 'no-store' });
+        const result = await response.json();
+
+        if (result.success && Array.isArray(result.data)) {
+          setRankings(result.data);
+          return;
+        }
+
+        throw new Error(result.error || 'Bulk vote fetch failed');
+      } catch (error) {
+        console.error('Error fetching bulk votes, falling back to per-profile fetch:', error);
+
         const votePromises = people.map(person =>
           fetch(`/api/vote?slug=${person.slug}`)
             .then(res => res.json())
@@ -38,10 +75,8 @@ export function CommunityRankingsClient() {
             }))
         );
 
-        const results = await Promise.all(votePromises);
-        setRankings(results);
-      } catch (error) {
-        console.error('Error fetching votes:', error);
+        const fallbackResults = await Promise.all(votePromises);
+        setRankings(fallbackResults);
       } finally {
         setIsLoading(false);
       }
@@ -50,9 +85,13 @@ export function CommunityRankingsClient() {
     fetchAllVotes();
   }, []);
 
+  const rankingBySlug = useMemo(() => {
+    return new Map(rankings.map((entry) => [entry.slug, entry]));
+  }, [rankings]);
+
   const getSortedRankings = () => {
     const rankedPeople = people.map(person => {
-      const votes = rankings.find(r => r.slug === person.slug) || {
+      const votes = rankingBySlug.get(person.slug) || {
         netVotes: 0,
         upvotes: 0,
         downvotes: 0,
@@ -182,9 +221,11 @@ export function CommunityRankingsClient() {
             </div>
 
             {isLoading ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--muted)' }}>
-                Loading community rankings...
-              </div>
+              <>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <TableRowSkeleton key={`community-skeleton-${i}`} />
+                ))}
+              </>
             ) : (
               sortedRankings.map((person, index) => (
                 <div className="dashboardRow dashboardRowLink" key={person.slug} style={{ cursor: 'default' }}>
