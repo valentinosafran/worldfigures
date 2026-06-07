@@ -87,6 +87,8 @@ export default async function PersonProfilePage({
   const isCachedData = apiData?.cached || apiData?.stale || false;
   const signalScore = apiData?.signalScore || 0;
   const movement7d = apiData?.movement7d || null;
+  const dataStatusLabel = isLiveData ? 'Live' : isCachedData ? 'Cached' : 'Static';
+  const dataStatusColor = isLiveData ? '#ef4444' : isCachedData ? '#f59e0b' : '#64748b';
   
   // Use dynamic insights from API or fallback to static data
   const keyTopics = apiData?.keyTopics || person.keyTopics;
@@ -139,8 +141,21 @@ export default async function PersonProfilePage({
               </div>
               <div className="miniMetricCard">
                 <span>Data status</span>
-                <strong className={isLiveData ? "trend-up" : isCachedData ? "trend-flat" : "trend-down"}>
-                  {isLiveData ? "🔴 Live" : isCachedData ? "🟭 Cached" : "📊 Static"}
+                <strong
+                  className={isLiveData ? "trend-up" : isCachedData ? "trend-flat" : "trend-down"}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '9999px',
+                      backgroundColor: dataStatusColor,
+                      boxShadow: `0 0 0 2px ${dataStatusColor}33`,
+                    }}
+                  />
+                  {dataStatusLabel}
                 </strong>
               </div>
               <div className="miniMetricCard">
