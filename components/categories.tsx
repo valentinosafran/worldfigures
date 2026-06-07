@@ -1,11 +1,4 @@
-const categories = [
-  "Technology & AI",
-  "Politics & Geopolitics",
-  "Finance & Business",
-  "Media & Culture",
-  "Science & Thought Leaders",
-  "EU Leaders",
-];
+import { CATEGORY_DEFINITIONS } from '../lib/profile-taxonomy';
 
 export function Categories() {
   return (
@@ -17,11 +10,11 @@ export function Categories() {
         </div>
 
         <div className="cardGrid three">
-          {categories.map((category) => (
-            <article className="categoryCard" key={category}>
-              <h3>{category}</h3>
-              <p>Browse profiles, rankings, and trends.</p>
-            </article>
+          {CATEGORY_DEFINITIONS.map((category) => (
+            <a className="categoryCard" key={category.key} href={`/top-100?category=${encodeURIComponent(category.key)}`}>
+              <h3>{category.name}</h3>
+              <p>{category.description}</p>
+            </a>
           ))}
         </div>
       </div>

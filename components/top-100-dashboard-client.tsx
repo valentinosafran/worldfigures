@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { people, type PersonProfile } from '../data/people';
 import { fetchMultiplePeopleData } from '../lib/api-client';
 import { calculateLabel, getOpinionClass } from '../lib/label-calculator';
 import { InlineVoteDisplay } from './inline-vote-display';
+import { CATEGORY_DEFINITIONS, CategoryKey, getCategoryKey, getCategoryName, getDisplayRole } from '../lib/profile-taxonomy';
 
 function formatDelta(value: number) {
   if (value > 0) return `+${value}`;
@@ -23,6 +24,8 @@ type EnrichedPerson = PersonProfile & {
   pressureScore: number;
   hasLiveData: boolean;
   trend7d: number;
+  displayRole: string;
+  categoryKey: CategoryKey;
 };
 
 function getPressureScore(scores: { approval: number; trust: number; impact: number; controversy: number }, trend7d: number) {
@@ -82,8 +85,18 @@ function TableRowSkeleton() {
 const BATCH_SIZE = 12; // Load 12 profiles at a time
 const INITIAL_BATCH_SIZE = 15; // Load 15 initially for above-the-fold
 
-export function Top100DashboardClient() {
+type SortKey = 'signal' | 'approval' | 'trust' | 'impact' | 'controversy' | 'name';
+
+type Top100DashboardClientProps = {
+  initialCategory?: string;
+  initialCountry?: string;
+};
+
+export function Top100DashboardClient({ initialCategory = 'all', initialCountry = 'all' }: Top100DashboardClientProps) {
   const [enrichedPeople, setEnrichedPeople] = useState<EnrichedPerson[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
+  const [countryFilter, setCountryFilter] = useState<string>(initialCountry);
+  const [sortBy, setSortBy] = useState<SortKey>('signal');
   const [displayedCount, setDisplayedCount] = useState(INITIAL_BATCH_SIZE);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -114,6 +127,9 @@ export function Top100DashboardClient() {
           
           return {
             ...person,
+            role: getDisplayRole(person),
+            displayRole: getDisplayRole(person),
+            categoryKey: getCategoryKey(person),
             scores,
             label,
             sourceConfidence,
@@ -132,6 +148,9 @@ export function Top100DashboardClient() {
         // Fallback to static data
         const fallback: EnrichedPerson[] = people.map(person => ({
           ...person,
+          role: getDisplayRole(person),
+          displayRole: getDisplayRole(person),
+          categoryKey: getCategoryKey(person),
           signalScore: 0,
           pressureScore: getPressureScore(person.scores, person.trend7d),
           hasLiveData: false,
@@ -145,15 +164,59 @@ export function Top100DashboardClient() {
     loadInitialData();
   }, []);
 
+  const countries = useMemo(() => {
+    return Array.from(new Set(enrichedPeople.map((person) => person.region))).sort((a, b) => a.localeCompare(b));
+  }, [enrichedPeople]);
+
+  const filteredAndSortedPeople = useMemo(() => {
+    let next = [...enrichedPeople];
+
+    if (categoryFilter !== 'all') {
+      next = next.filter((person) => person.categoryKey === categoryFilter);
+    }
+
+    if (countryFilter !== 'all') {
+      next = next.filter((person) => person.region === countryFilter);
+    }
+
+    switch (sortBy) {
+      case 'approval':
+        next.sort((a, b) => b.scores.approval - a.scores.approval);
+        break;
+      case 'trust':
+        next.sort((a, b) => b.scores.trust - a.scores.trust);
+        break;
+      case 'impact':
+        next.sort((a, b) => b.scores.impact - a.scores.impact);
+        break;
+      case 'controversy':
+        next.sort((a, b) => b.scores.controversy - a.scores.controversy);
+        break;
+      case 'name':
+        next.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'signal':
+      default:
+        next.sort((a, b) => b.signalScore - a.signalScore);
+        break;
+    }
+
+    return next;
+  }, [enrichedPeople, categoryFilter, countryFilter, sortBy]);
+
+  useEffect(() => {
+    setDisplayedCount(INITIAL_BATCH_SIZE);
+  }, [categoryFilter, countryFilter, sortBy]);
+
   // Infinite scroll observer
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore && displayedCount < enrichedPeople.length) {
+        if (entries[0].isIntersecting && !isLoadingMore && displayedCount < filteredAndSortedPeople.length) {
           setIsLoadingMore(true);
           // Simulate a small delay for smooth UX
           setTimeout(() => {
-            setDisplayedCount(prev => Math.min(prev + BATCH_SIZE, enrichedPeople.length));
+            setDisplayedCount(prev => Math.min(prev + BATCH_SIZE, filteredAndSortedPeople.length));
             setIsLoadingMore(false);
           }, 300);
         }
@@ -166,39 +229,39 @@ export function Top100DashboardClient() {
     }
 
     return () => observer.disconnect();
-  }, [displayedCount, enrichedPeople.length, isLoadingMore]);
+  }, [displayedCount, filteredAndSortedPeople.length, isLoadingMore]);
 
   // Calculate stats
-  const positiveCount = enrichedPeople.filter((person) =>
+  const positiveCount = filteredAndSortedPeople.filter((person) =>
     person.label.toLowerCase().includes("positive")
   ).length;
-  const polarizingCount = enrichedPeople.filter((person) =>
+  const polarizingCount = filteredAndSortedPeople.filter((person) =>
     person.label.toLowerCase().includes("polarizing")
   ).length;
-  const averageApproval = enrichedPeople.length > 0 ? Math.round(
-    enrichedPeople.reduce((sum, person) => sum + person.scores.approval, 0) / enrichedPeople.length
+  const averageApproval = filteredAndSortedPeople.length > 0 ? Math.round(
+    filteredAndSortedPeople.reduce((sum, person) => sum + person.scores.approval, 0) / filteredAndSortedPeople.length
   ) : 0;
-  const averageTrust = enrichedPeople.length > 0 ? Math.round(
-    enrichedPeople.reduce((sum, person) => sum + person.scores.trust, 0) / enrichedPeople.length
+  const averageTrust = filteredAndSortedPeople.length > 0 ? Math.round(
+    filteredAndSortedPeople.reduce((sum, person) => sum + person.scores.trust, 0) / filteredAndSortedPeople.length
   ) : 0;
-  const averageTrend7d = enrichedPeople.length > 0 ? Number(
-    (enrichedPeople.reduce((sum, person) => sum + person.trend7d, 0) / enrichedPeople.length).toFixed(1)
+  const averageTrend7d = filteredAndSortedPeople.length > 0 ? Number(
+    (filteredAndSortedPeople.reduce((sum, person) => sum + person.trend7d, 0) / filteredAndSortedPeople.length).toFixed(1)
   ) : 0;
 
-  const mostWatched = enrichedPeople[0];
-  const biggestRiser = [...enrichedPeople].sort((a, b) => {
+  const mostWatched = filteredAndSortedPeople[0];
+  const biggestRiser = [...filteredAndSortedPeople].sort((a, b) => {
     if (b.trend7d !== a.trend7d) return b.trend7d - a.trend7d;
     return b.trend30d - a.trend30d;
   })[0];
-  const trustLeader = [...enrichedPeople].sort(
+  const trustLeader = [...filteredAndSortedPeople].sort(
     (a, b) => b.scores.trust - a.scores.trust
   )[0];
-  const pressurePoint = [...enrichedPeople].sort(
+  const pressurePoint = [...filteredAndSortedPeople].sort(
     (a, b) => b.pressureScore - a.pressureScore
   )[0];
 
-  const topNarratives = enrichedPeople.length > 0 ? Object.entries(
-    enrichedPeople.reduce<Record<string, number>>((acc, person) => {
+  const topNarratives = filteredAndSortedPeople.length > 0 ? Object.entries(
+    filteredAndSortedPeople.reduce<Record<string, number>>((acc, person) => {
       person.keyTopics.forEach((topic) => {
         acc[topic] = (acc[topic] ?? 0) + 1;
       });
@@ -208,7 +271,7 @@ export function Top100DashboardClient() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6) : [];
 
-  const displayedPeople = enrichedPeople.slice(0, displayedCount);
+  const displayedPeople = filteredAndSortedPeople.slice(0, displayedCount);
 
   return (
     <section className="section">
@@ -348,6 +411,59 @@ export function Top100DashboardClient() {
             </p>
           </div>
 
+          {!isLoading && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '12px',
+              marginBottom: '16px'
+            }}>
+              <label style={{ display: 'grid', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Category</span>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+                >
+                  <option value="all">All categories</option>
+                  {CATEGORY_DEFINITIONS.map((category) => (
+                    <option key={category.key} value={category.key}>{category.name}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Country / Region</span>
+                <select
+                  value={countryFilter}
+                  onChange={(e) => setCountryFilter(e.target.value)}
+                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+                >
+                  <option value="all">All countries/regions</option>
+                  {countries.map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label style={{ display: 'grid', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>Sort</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortKey)}
+                  style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--text)' }}
+                >
+                  <option value="signal">Signal (desc)</option>
+                  <option value="approval">Approval (desc)</option>
+                  <option value="trust">Trust (desc)</option>
+                  <option value="impact">Impact (desc)</option>
+                  <option value="controversy">Controversy (desc)</option>
+                  <option value="name">Name (A-Z)</option>
+                </select>
+              </label>
+            </div>
+          )}
+
           <div className="dashboardTable">
             <div className="dashboardRow dashboardRowHead">
               <span>#</span>
@@ -377,7 +493,7 @@ export function Top100DashboardClient() {
                       <img className="dashboardTableAvatar" src={person.image} alt={person.name} />
                       <span className="dashboardFigureText">
                         <strong>{person.name}</strong>
-                        <small>{person.role}</small>
+                        <small>{person.displayRole}</small>
                         <span className={`dashboardInlineStatus ${getOpinionClass(person.label)}`}>
                           {person.label}
                           <InlineVoteDisplay slug={person.slug} />
@@ -406,19 +522,27 @@ export function Top100DashboardClient() {
                 )}
 
                 {/* Intersection observer target */}
-                {displayedCount < enrichedPeople.length && (
+                {displayedCount < filteredAndSortedPeople.length && (
                   <div ref={observerTarget} style={{ height: '20px', width: '100%' }} />
                 )}
 
                 {/* Show completion message */}
-                {displayedCount >= enrichedPeople.length && enrichedPeople.length > 0 && (
+                {displayedCount >= filteredAndSortedPeople.length && filteredAndSortedPeople.length > 0 && (
                   <div style={{ 
                     padding: '24px', 
                     textAlign: 'center', 
                     color: 'var(--muted)',
                     fontSize: '0.9rem'
                   }}>
-                    ✓ All {enrichedPeople.length} profiles loaded
+                    ✓ Showing {filteredAndSortedPeople.length} profiles
+                    {categoryFilter !== 'all' ? ` in ${getCategoryName(categoryFilter as CategoryKey)}` : ''}
+                    {countryFilter !== 'all' ? ` for ${countryFilter}` : ''}
+                  </div>
+                )}
+
+                {!isLoading && filteredAndSortedPeople.length === 0 && (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--muted)' }}>
+                    No profiles match the selected filters.
                   </div>
                 )}
               </>

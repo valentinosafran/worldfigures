@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { people } from '../data/people';
 import { getOpinionClass } from '../lib/label-calculator';
 import { InlineVoteDisplay } from './inline-vote-display';
+import { getDisplayRole } from '../lib/profile-taxonomy';
 
 interface ProfileVotes {
   slug: string;
@@ -192,7 +193,7 @@ export function CommunityRankingsClient() {
                     <img className="dashboardTableAvatar" src={person.image} alt={person.name} />
                     <span className="dashboardFigureText">
                       <strong>{person.name}</strong>
-                      <small>{person.role}</small>
+                      <small>{getDisplayRole(person)}</small>
                       <span className={`dashboardInlineStatus ${getOpinionClass(person.label)}`}>
                         {person.label}
                         <InlineVoteDisplay slug={person.slug} />

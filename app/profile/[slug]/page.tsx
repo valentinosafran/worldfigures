@@ -8,6 +8,7 @@ import {
 } from "../../../data/people";
 import { fetchPersonData, formatLastUpdated } from "../../../lib/api-client";
 import { calculateLabel, getOpinionClass } from "../../../lib/label-calculator";
+import { getDisplayRole } from "../../../lib/profile-taxonomy";
 
 // Force dynamic rendering - no static generation
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,7 @@ export default async function PersonProfilePage({
 
   // Fetch real-time data from API
   const apiData = await fetchPersonData(resolvedParams.slug);
+  const displayRole = getDisplayRole(person);
 
   // Use API scores if available, otherwise fall back to static data
   const scores = apiData ? {
@@ -123,7 +125,7 @@ export default async function PersonProfilePage({
               <div>
                 <h1 className="profileHeroTitle">{person.name}</h1>
                 <p className="profileHeroMeta">
-                  {person.role} · {person.region}
+                  {displayRole} · {person.region}
                 </p>
                 <span className={`pill opinionTag ${getOpinionClass(label)}`}>
                   {label}
