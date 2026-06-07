@@ -1,10 +1,10 @@
 import { Navbar } from "../components/navbar";
 import { Hero } from "../components/hero";
 import { Features } from "../components/features";
-import { Trending } from "../components/trending";
+import { TrendingHome as Trending } from "../components/trending-home";
 import { Scoring } from "../components/scoring";
 import { Categories } from "../components/categories";
-import { ProfilePreview } from "../components/profile-preview";
+import { ProfilePreviewHome as ProfilePreview } from "../components/profile-preview-home";
 import { PremiumAccess } from "../components/premium-access";
 import { TrustSection } from "../components/trust-section";
 import { CTA } from "../components/cta";

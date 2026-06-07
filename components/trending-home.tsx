@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { people } from "../data/people";
 import { fetchMultiplePeopleData } from "../lib/api-client";
 import { calculateLabel, getOpinionClass } from "../lib/label-calculator";
@@ -48,11 +48,9 @@ function getStaticTrendingPeople(): TrendingPerson[] {
     .slice(0, 8);
 }
 
-export function Trending() {
+export function TrendingHome() {
   const [trendingPeople, setTrendingPeople] = useState<TrendingPerson[]>(getStaticTrendingPeople());
   const [isHydrating, setIsHydrating] = useState(true);
-
-  const staticCount = useMemo(() => trendingPeople.length, [trendingPeople.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,7 +135,7 @@ export function Trending() {
         </div>
 
         <div className="cardGrid four profileCards">
-          {trendingPeople.slice(0, staticCount).map((person) => (
+          {trendingPeople.map((person) => (
             <article className="profileCard" key={person.name}>
               <img className="avatar" src={person.image} alt={person.name} />
               <h3>{person.name}</h3>

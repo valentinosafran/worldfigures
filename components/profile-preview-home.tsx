@@ -6,7 +6,7 @@ import { fetchPersonData } from "../lib/api-client";
 import { calculateLabel } from "../lib/label-calculator";
 import { getDisplayRole } from "../lib/profile-taxonomy";
 
-export function ProfilePreview() {
+export function ProfilePreviewHome() {
   const person = getPersonBySlug("emmanuel-macron");
   const defaultScores = person?.scores ?? {
     approval: 61,
@@ -49,6 +49,8 @@ export function ProfilePreview() {
     };
   }, []);
 
+  const displayRole = person ? getDisplayRole(person) : "President of France";
+
   return (
     <section className="section">
       <div className="container previewPanel">
@@ -71,7 +73,7 @@ export function ProfilePreview() {
               />
               <div>
                 <h3>Emmanuel Macron</h3>
-                <p>{getDisplayRole(person ?? { slug: "emmanuel-macron", name: "Emmanuel Macron", role: "President", label: "Mixed", image: "", region: "France", summary: "", lastUpdated: "", sourceConfidence: 0, trend7d: 0, trend30d: 0, keyTopics: [], strengths: [], risks: [], trendNotes: [], scores: defaultScores })} · Overall perception: {perceptionLabel}</p>
+                <p>{displayRole} · Overall perception: {perceptionLabel}</p>
               </div>
             </div>
             <span className="panelUpdate previewLiveBadge">
