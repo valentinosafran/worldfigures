@@ -2,6 +2,18 @@ import { people } from "../data/people";
 import { fetchMultiplePeopleData } from "../lib/api-client";
 import { calculateLabel, getOpinionClass } from "../lib/label-calculator";
 import { InlineVoteDisplay } from "./inline-vote-display";
+import { getDisplayRole } from "../lib/profile-taxonomy";
+
+function getStaticSignalScore(scores: {
+  approval: number;
+  trust: number;
+  impact: number;
+  controversy: number;
+}, trend7d: number) {
+  const movementBonus = Math.min(Math.abs(trend7d) * 1.2, 12);
+  const base = (scores.impact * 0.65) + (scores.controversy * 0.3) + (((scores.approval + scores.trust) / 2) * 0.05);
+  return Math.round(base + movementBonus);
+}
 
 export async function Trending() {
   // Fetch real-time data for all people
@@ -19,11 +31,17 @@ export async function Trending() {
     
     return {
       ...person,
+      role: getDisplayRole(person),
       scores,
       label: calculateLabel(scores),
       hasLiveData: !!apiData,
+      signalScore: apiData?.signalScore ?? getStaticSignalScore(scores, person.trend7d),
     };
   });
+
+  const topBySignal = [...enrichedPeople]
+    .sort((a, b) => b.signalScore - a.signalScore)
+    .slice(0, 8);
 
   return (
     <section className="section" id="rankings">
@@ -38,7 +56,7 @@ export async function Trending() {
         </div>
 
         <div className="cardGrid four profileCards">
-          {enrichedPeople.slice(0, 8).map((person) => (
+          {topBySignal.map((person) => (
             <article className="profileCard" key={person.name}>
               <img className="avatar" src={person.image} alt={person.name} />
               <h3>{person.name}</h3>

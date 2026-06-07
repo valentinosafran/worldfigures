@@ -2379,6 +2379,23 @@ textarea.formInput {
   color: var(--text);
 }
 
+.scoreLabelRow {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.scoreLabelRow strong {
+  font-size: 0.88rem;
+  color: #bfdbfe;
+}
+
+.previewLiveBadge {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 progress {
   width: 100%;
   height: 10px;

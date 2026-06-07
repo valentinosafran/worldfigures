@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { calculateLabel } from '../lib/label-calculator';
+
 interface HeroProps {
   benchmarkStats: {
     label: string;
@@ -40,6 +45,64 @@ function formatDelta(delta: number, hasData: boolean) {
 }
 
 export function Hero({ benchmarkStats, trendingPeople }: HeroProps) {
+  const [liveProfiles, setLiveProfiles] = useState(trendingPeople);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateLiveLabels() {
+      try {
+        const updates = await Promise.all(
+          trendingPeople.map(async (profile) => {
+            const response = await fetch(`/api/data/person/${profile.slug}`, { cache: 'no-store' });
+            const result = await response.json();
+
+            if (!result?.success || !result?.data?.breakdown) {
+              return profile;
+            }
+
+            const scores = {
+              approval: result.data.breakdown.approval.score,
+              trust: result.data.breakdown.trust.score,
+              impact: result.data.breakdown.impact.score,
+              controversy: result.data.breakdown.controversy.score,
+            };
+
+            let signalMovement = profile.delta;
+            const movement = result.data.movement7d;
+            if (movement) {
+              signalMovement = Math.round(
+                movement.impact * 0.65 +
+                movement.controversy * 0.3 +
+                (movement.approval + movement.trust) * 0.025
+              );
+            }
+
+            return {
+              ...profile,
+              opinion: calculateLabel(scores),
+              delta: signalMovement,
+              hasMovementData: !!movement,
+            };
+          })
+        );
+
+        if (!cancelled) {
+          setLiveProfiles(updates);
+        }
+      } catch {
+        // Keep server-rendered fallback profiles if hydration fetch fails.
+      }
+    }
+
+    setLiveProfiles(trendingPeople);
+    hydrateLiveLabels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trendingPeople]);
+
   return (
     <section className="hero">
       <div className="container heroGrid">
@@ -92,7 +155,7 @@ export function Hero({ benchmarkStats, trendingPeople }: HeroProps) {
             </p>
 
             <div className="miniProfiles">
-              {trendingPeople.map((profile) => (
+              {liveProfiles.map((profile) => (
                 <a className="miniProfile miniProfileLink" href={`/profile/${profile.slug}`} key={profile.name}>
                   <div className="miniProfileMain">
                     <img

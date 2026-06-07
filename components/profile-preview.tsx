@@ -1,4 +1,5 @@
 import { fetchPersonData } from "../lib/api-client";
+import { calculateLabel } from "../lib/label-calculator";
 
 export async function ProfilePreview() {
   // Fetch live data for Emmanuel Macron
@@ -16,6 +17,8 @@ export async function ProfilePreview() {
     impact: 83,
     controversy: 58,
   };
+
+  const perceptionLabel = calculateLabel(scores);
 
   return (
     <section className="section">
@@ -39,27 +42,30 @@ export async function ProfilePreview() {
               />
               <div>
                 <h3>Emmanuel Macron</h3>
-                <p>President of France · Overall perception: Mixed</p>
+                <p>President of France · Overall perception: {perceptionLabel}</p>
               </div>
             </div>
-            <span className="pill">🔴 Live data</span>
+            <span className="panelUpdate previewLiveBadge">
+              <span className="panelUpdateDot" aria-hidden="true" />
+              Live data
+            </span>
           </div>
 
           <div className="scoreList">
             <div>
-              <label>Approval</label>
+              <label className="scoreLabelRow"><span>Approval</span><strong>{scores.approval}%</strong></label>
               <progress max="100" value={scores.approval} />
             </div>
             <div>
-              <label>Trust</label>
+              <label className="scoreLabelRow"><span>Trust</span><strong>{scores.trust}%</strong></label>
               <progress max="100" value={scores.trust} />
             </div>
             <div>
-              <label>Impact</label>
+              <label className="scoreLabelRow"><span>Impact</span><strong>{scores.impact}%</strong></label>
               <progress max="100" value={scores.impact} />
             </div>
             <div>
-              <label>Controversy</label>
+              <label className="scoreLabelRow"><span>Controversy</span><strong>{scores.controversy}%</strong></label>
               <progress max="100" value={scores.controversy} />
             </div>
           </div>
